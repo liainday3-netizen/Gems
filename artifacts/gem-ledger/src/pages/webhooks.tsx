@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Webhook, Plus, Trash2, Check, Copy, ShieldCheck, AlertTriangle, Power, PowerOff } from "lucide-react";
+import {
+  Webhook, Plus, Trash2, Check, Copy, ShieldCheck, AlertTriangle,
+  Power, PowerOff, ChevronDown, ChevronRight, Clock, CheckCircle2, XCircle,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface WebhookEndpoint {
@@ -19,20 +24,23 @@ interface CreatedWebhook extends WebhookEndpoint {
   secret: string;
 }
 
-function CopyButton({ text, label }: { text: string; label?: string }) {
+interface DeliveryLog {
+  id: string;
+  event: string;
+  statusCode: number | null;
+  responseTimeMs: number | null;
+  success: boolean;
+  createdAt: string;
+}
+
+function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  const handle = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
   return (
     <button
-      onClick={handle}
-      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="text-muted-foreground hover:text-foreground transition-colors"
     >
       {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
-      {label && <span>{copied ? "Copied!" : label}</span>}
     </button>
   );
 }
@@ -48,6 +56,159 @@ async function apiFetch(path: string, options?: RequestInit) {
   }
   if (res.status === 204) return null;
   return res.json();
+}
+
+function eventColor(event: string) {
+  if (event.includes("earn") || event.includes("credit") || event.includes("transfer_in")) return "text-emerald-400";
+  if (event.includes("spend") || event.includes("debit")) return "text-red-400";
+  if (event.includes("transfer")) return "text-amber-400";
+  return "text-sky-400";
+}
+
+function DeliveryPanel({ endpointId }: { endpointId: string }) {
+  const { data: logs = [], isLoading } = useQuery<DeliveryLog[]>({
+    queryKey: ["webhook-deliveries", endpointId],
+    queryFn: () => apiFetch(`/webhooks/${endpointId}/deliveries`),
+    refetchInterval: 10_000,
+  });
+
+  if (isLoading) {
+    return <div className="px-4 pb-4 text-xs text-muted-foreground">Loading…</div>;
+  }
+
+  if (logs.length === 0) {
+    return (
+      <div className="px-4 pb-4 text-xs text-muted-foreground italic">
+        No deliveries yet — they'll appear here after the first transaction.
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 pb-4">
+      <div className="rounded-md border border-border overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-secondary/50">
+            <tr>
+              <th className="text-left p-2 pl-3 font-semibold text-muted-foreground">Event</th>
+              <th className="text-left p-2 font-semibold text-muted-foreground">Status</th>
+              <th className="text-left p-2 font-semibold text-muted-foreground">Time</th>
+              <th className="text-left p-2 font-semibold text-muted-foreground">When</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/50">
+            {logs.map((log) => (
+              <tr key={log.id} className="hover:bg-secondary/20 transition-colors">
+                <td className="p-2 pl-3">
+                  <code className={`font-mono ${eventColor(log.event)}`}>{log.event}</code>
+                </td>
+                <td className="p-2">
+                  <span className={`inline-flex items-center gap-1 font-medium ${log.success ? "text-emerald-400" : "text-red-400"}`}>
+                    {log.success
+                      ? <CheckCircle2 className="h-3.5 w-3.5" />
+                      : <XCircle className="h-3.5 w-3.5" />}
+                    {log.statusCode ?? (log.success ? "ok" : "failed")}
+                  </span>
+                </td>
+                <td className="p-2 text-muted-foreground">
+                  {log.responseTimeMs != null ? (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {log.responseTimeMs} ms
+                    </span>
+                  ) : "—"}
+                </td>
+                <td className="p-2 text-muted-foreground">
+                  {new Date(log.createdAt).toLocaleTimeString(undefined, {
+                    hour: "2-digit", minute: "2-digit", second: "2-digit",
+                  })}
+                  {" "}
+                  <span className="text-[10px]">
+                    {new Date(log.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-1.5">Last 50 deliveries · refreshes every 10 s</p>
+    </div>
+  );
+}
+
+function EndpointCard({
+  ep,
+  onToggle,
+  onDelete,
+  toggling,
+}: {
+  ep: WebhookEndpoint;
+  onToggle: (active: boolean) => void;
+  onDelete: () => void;
+  toggling: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <Card className={`bg-card border-border transition-opacity ${ep.active ? "" : "opacity-60"}`}>
+      {/* Header row */}
+      <CardContent className="py-4 flex items-center gap-4">
+        <div className={`flex-shrink-0 w-2 h-2 rounded-full ${ep.active ? "bg-emerald-400" : "bg-muted-foreground"}`} />
+        <div className="flex-1 min-w-0">
+          <div className="font-mono text-sm text-foreground truncate">{ep.url}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            Added {new Date(ep.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+            {" · "}
+            <span className={ep.active ? "text-emerald-400" : "text-muted-foreground"}>
+              {ep.active ? "Active" : "Inactive"}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1"
+          >
+            {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            Deliveries
+          </button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 h-8 text-xs"
+            onClick={() => onToggle(!ep.active)}
+            disabled={toggling}
+          >
+            {ep.active
+              ? <><PowerOff className="h-3.5 w-3.5" /> Deactivate</>
+              : <><Power className="h-3.5 w-3.5" /> Activate</>}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+
+      {/* Delivery log panel */}
+      {expanded && (
+        <>
+          <div className="mx-4 border-t border-border/50" />
+          <div className="pt-3">
+            <div className="px-4 pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Recent Deliveries
+            </div>
+            <DeliveryPanel endpointId={ep.id} />
+          </div>
+        </>
+      )}
+    </Card>
+  );
 }
 
 export default function WebhooksPage() {
@@ -100,17 +261,6 @@ export default function WebhooksPage() {
     },
   });
 
-  const handleCreate = () => {
-    const trimmed = urlInput.trim();
-    if (!trimmed) return;
-    createMutation.mutate(trimmed);
-  };
-
-  const handleCopySecret = (secret: string) => {
-    navigator.clipboard.writeText(secret);
-    setSecretCopied(true);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -139,14 +289,14 @@ export default function WebhooksPage() {
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>
-            Every webhook POST includes two headers your server must verify before trusting the payload:
+            Every webhook POST includes headers your server must verify before trusting the payload:
           </p>
           <div className="rounded-md border border-border/50 divide-y divide-border/50">
             {[
               {
                 header: "X-Gem-Signature",
                 value: "sha256=<hex>",
-                desc: "HMAC-SHA256 of the string timestamp.body signed with your endpoint's secret. Proves the payload wasn't tampered with in transit.",
+                desc: "HMAC-SHA256 of timestamp.body signed with your endpoint's secret. Proves the payload wasn't tampered with in transit.",
               },
               {
                 header: "X-Gem-Timestamp",
@@ -168,72 +318,52 @@ export default function WebhooksPage() {
               </div>
             ))}
           </div>
-          <p className="text-xs">
-            The secret is unique per endpoint and shown exactly once at creation. Your receiving server stores it
-            and uses it to recompute the signature on every incoming request.
-          </p>
         </CardContent>
       </Card>
 
-      {/* Verification code */}
+      {/* Verification snippet */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Signature verification — copy into your server</CardTitle>
           <CardDescription className="text-xs">Reject the request if verification fails — never process an unverified payload.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent>
           <div className="relative group">
             <pre className="bg-background border border-border rounded-md p-4 overflow-x-auto text-xs font-mono text-muted-foreground leading-relaxed whitespace-pre">
-{`// Node.js — place this before your business logic
-import { createHmac, timingSafeEqual } from "crypto";
+{`import { createHmac, timingSafeEqual } from "crypto";
 
-function verifyGemWebhook(req, secret) {
-  const signature = req.headers["x-gem-signature"]; // "sha256=abc123..."
-  const timestamp  = req.headers["x-gem-timestamp"]; // unix seconds string
-
-  if (!signature || !timestamp) return false;
-
-  // Reject stale events (replay protection)
-  const age = Math.abs(Date.now() / 1000 - Number(timestamp));
-  if (age > 300) return false;
-
-  // Recompute the expected signature
-  const body     = JSON.stringify(req.body); // requires express.json() middleware
-  const expected = "sha256=" + createHmac("sha256", secret)
-    .update(\`\${timestamp}.\${body}\`)
-    .digest("hex");
-
-  // timingSafeEqual prevents timing attacks
-  const a = Buffer.from(signature);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
-// In your route handler:
+// Use express.raw() so req.body is the raw buffer — do NOT use express.json() here
 app.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) => {
-  const rawBody = req.body.toString();
-  const timestamp = req.headers["x-gem-timestamp"];
-  const signature = req.headers["x-gem-signature"];
+  const rawBody  = req.body.toString();
+  const timestamp = req.headers["x-gem-timestamp"] ?? "";
+  const signature = req.headers["x-gem-signature"] ?? "";
 
+  // 1. Reject stale events (replay protection)
+  const age = Math.abs(Date.now() / 1000 - Number(timestamp));
+  if (age > 300) return res.status(400).json({ error: "Stale event" });
+
+  // 2. Recompute the expected signature
   const expected = "sha256=" + createHmac("sha256", process.env.WEBHOOK_SECRET)
     .update(\`\${timestamp}.\${rawBody}\`)
     .digest("hex");
 
-  const a = Buffer.from(signature ?? "");
+  // 3. Constant-time comparison (prevents timing attacks)
+  const a = Buffer.from(String(signature));
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) {
     return res.status(401).json({ error: "Invalid signature" });
   }
 
+  // 4. Safe to parse and act on the event
   const event = JSON.parse(rawBody);
   // event.event  → "transaction.earn"
   // event.data   → { transactionId, userId, username, amount, balanceAfter, ... }
-  console.log("Verified webhook:", event.event, event.data.username, event.data.amount);
-  res.status(200).end();
+
+  res.status(200).end(); // respond quickly — do heavy work in a background job
 });`}
             </pre>
             <div className="absolute top-2.5 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-              <CopyButton text={`import { createHmac, timingSafeEqual } from "crypto";\n\nfunction verifyGemWebhook(req, secret) {\n  const signature = req.headers["x-gem-signature"];\n  const timestamp  = req.headers["x-gem-timestamp"];\n  if (!signature || !timestamp) return false;\n  const age = Math.abs(Date.now() / 1000 - Number(timestamp));\n  if (age > 300) return false;\n  const body     = JSON.stringify(req.body);\n  const expected = "sha256=" + createHmac("sha256", secret)\n    .update(\`\${timestamp}.\${body}\`)\n    .digest("hex");\n  const a = Buffer.from(signature);\n  const b = Buffer.from(expected);\n  return a.length === b.length && timingSafeEqual(a, b);\n}`} />
+              <CopyButton text={`import { createHmac, timingSafeEqual } from "crypto";\n\napp.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) => {\n  const rawBody  = req.body.toString();\n  const timestamp = req.headers["x-gem-timestamp"] ?? "";\n  const signature = req.headers["x-gem-signature"] ?? "";\n  const age = Math.abs(Date.now() / 1000 - Number(timestamp));\n  if (age > 300) return res.status(400).json({ error: "Stale event" });\n  const expected = "sha256=" + createHmac("sha256", process.env.WEBHOOK_SECRET)\n    .update(\`\${timestamp}.\${rawBody}\`)\n    .digest("hex");\n  const a = Buffer.from(String(signature));\n  const b = Buffer.from(expected);\n  if (a.length !== b.length || !timingSafeEqual(a, b)) {\n    return res.status(401).json({ error: "Invalid signature" });\n  }\n  const event = JSON.parse(rawBody);\n  res.status(200).end();\n});`} />
             </div>
           </div>
         </CardContent>
@@ -260,42 +390,13 @@ app.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) 
         )}
 
         {endpoints.map((ep) => (
-          <Card key={ep.id} className={`bg-card border-border transition-opacity ${ep.active ? "" : "opacity-60"}`}>
-            <CardContent className="py-4 flex items-center gap-4">
-              <div className={`flex-shrink-0 w-2 h-2 rounded-full ${ep.active ? "bg-emerald-400" : "bg-muted-foreground"}`} />
-              <div className="flex-1 min-w-0">
-                <div className="font-mono text-sm text-foreground truncate">{ep.url}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  Added {new Date(ep.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
-                  {" · "}
-                  <span className={ep.active ? "text-emerald-400" : "text-muted-foreground"}>
-                    {ep.active ? "Active" : "Inactive"}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 h-8 text-xs"
-                  onClick={() => toggleMutation.mutate({ id: ep.id, active: !ep.active })}
-                  disabled={toggleMutation.isPending}
-                >
-                  {ep.active
-                    ? <><PowerOff className="h-3.5 w-3.5" /> Deactivate</>
-                    : <><Power className="h-3.5 w-3.5" /> Activate</>}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                  onClick={() => setDeleteConfirm(ep)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <EndpointCard
+            key={ep.id}
+            ep={ep}
+            onToggle={(active) => toggleMutation.mutate({ id: ep.id, active })}
+            onDelete={() => setDeleteConfirm(ep)}
+            toggling={toggleMutation.isPending}
+          />
         ))}
       </div>
 
@@ -317,7 +418,7 @@ app.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) 
                 placeholder="https://my-game-server.com/gems/webhook"
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
+                onKeyDown={(e) => { if (e.key === "Enter") createMutation.mutate(urlInput.trim()); }}
                 autoFocus
               />
             </div>
@@ -325,7 +426,7 @@ app.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) 
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
             <Button
-              onClick={handleCreate}
+              onClick={() => createMutation.mutate(urlInput.trim())}
               disabled={createMutation.isPending || !urlInput.trim()}
             >
               {createMutation.isPending ? "Creating…" : "Create Endpoint"}
@@ -335,12 +436,7 @@ app.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) 
       </Dialog>
 
       {/* Secret reveal dialog */}
-      <Dialog
-        open={!!secretDialog}
-        onOpenChange={(open) => {
-          if (!open) setSecretDialog(null);
-        }}
-      >
+      <Dialog open={!!secretDialog} onOpenChange={(open) => { if (!open) setSecretDialog(null); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -348,10 +444,9 @@ app.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) 
               Webhook endpoint created
             </DialogTitle>
             <DialogDescription>
-              Copy the signing secret now. It will never be shown again — if you lose it, delete this endpoint and create a new one.
+              Copy the signing secret now — it will never be shown again. If you lose it, delete this endpoint and create a new one.
             </DialogDescription>
           </DialogHeader>
-
           {secretDialog && (
             <div className="space-y-4 py-2">
               <div className="space-y-1">
@@ -360,7 +455,6 @@ app.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) 
                   {secretDialog.url}
                 </div>
               </div>
-
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Signing Secret</Label>
                 <div className="relative">
@@ -369,7 +463,10 @@ app.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) 
                   </div>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <button
-                      onClick={() => handleCopySecret(secretDialog.secret)}
+                      onClick={() => {
+                        navigator.clipboard.writeText(secretDialog.secret);
+                        setSecretCopied(true);
+                      }}
                       className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
                         secretCopied ? "text-emerald-400" : "text-primary hover:text-primary/80"
                       }`}
@@ -381,20 +478,21 @@ app.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) 
                   </div>
                 </div>
               </div>
-
               <div className="flex items-start gap-2 rounded-md border border-amber-700/40 bg-amber-900/10 p-3">
                 <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-300/80">
                   Store this in your secrets manager or <code className="font-mono">.env</code> as{" "}
-                  <code className="font-mono">WEBHOOK_SECRET</code>.
-                  Never commit it to source control.
+                  <code className="font-mono">WEBHOOK_SECRET</code>. Never commit it to source control.
                 </p>
               </div>
             </div>
           )}
-
           <DialogFooter>
-            <Button onClick={() => setSecretDialog(null)} disabled={!secretCopied} variant={secretCopied ? "default" : "outline"}>
+            <Button
+              onClick={() => setSecretDialog(null)}
+              disabled={!secretCopied}
+              variant={secretCopied ? "default" : "outline"}
+            >
               {secretCopied ? "Done" : "Copy the secret first"}
             </Button>
           </DialogFooter>
@@ -407,8 +505,7 @@ app.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) 
           <DialogHeader>
             <DialogTitle>Delete webhook endpoint?</DialogTitle>
             <DialogDescription>
-              This is permanent. The endpoint will stop receiving events immediately and the signing secret will be destroyed.
-              You cannot undo this.
+              Permanent. The endpoint stops receiving events immediately and the signing secret is destroyed. All delivery history for this endpoint is also removed. Cannot be undone.
             </DialogDescription>
           </DialogHeader>
           {deleteConfirm && (

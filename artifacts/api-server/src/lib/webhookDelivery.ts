@@ -1,6 +1,7 @@
 import { createHmac } from "crypto";
 import { eq } from "drizzle-orm";
-import { db, webhookEndpointsTable } from "@workspace/db";
+import { randomUUID } from "crypto";
+import { db, webhookEndpointsTable, webhookDeliveryLogsTable } from "@workspace/db";
 
 export interface WebhookEventData {
   transactionId: string;
@@ -38,7 +39,11 @@ export function deliverWebhooks(event: WebhookEvent): void {
     let endpoints: { id: string; url: string; secret: string }[];
     try {
       endpoints = await db
-        .select({ id: webhookEndpointsTable.id, url: webhookEndpointsTable.url, secret: webhookEndpointsTable.secret })
+        .select({
+          id: webhookEndpointsTable.id,
+          url: webhookEndpointsTable.url,
+          secret: webhookEndpointsTable.secret,
+        })
         .from(webhookEndpointsTable)
         .where(eq(webhookEndpointsTable.active, true));
     } catch {
@@ -53,18 +58,39 @@ export function deliverWebhooks(event: WebhookEvent): void {
         .update(`${timestamp}.${body}`)
         .digest("hex");
 
-      fetch(endpoint.url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Gem-Signature": `sha256=${sig}`,
-          "X-Gem-Timestamp": timestamp,
-          "X-Gem-Event": event.event,
-        },
-        body,
-        signal: AbortSignal.timeout(10_000),
+      const start = Date.now();
+      let statusCode: number | null = null;
+      let success = false;
+
+      try {
+        const res = await fetch(endpoint.url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Gem-Signature": `sha256=${sig}`,
+            "X-Gem-Timestamp": timestamp,
+            "X-Gem-Event": event.event,
+          },
+          body,
+          signal: AbortSignal.timeout(10_000),
+        });
+        statusCode = res.status;
+        success = res.ok;
+      } catch {
+        // Network error or timeout — statusCode stays null, success stays false
+      }
+
+      const responseTimeMs = Date.now() - start;
+
+      db.insert(webhookDeliveryLogsTable).values({
+        id: randomUUID(),
+        webhookEndpointId: endpoint.id,
+        event: event.event,
+        statusCode,
+        responseTimeMs,
+        success,
       }).catch(() => {
-        // Best-effort delivery — failures are silent
+        // Don't let a log write failure surface anywhere
       });
     }
   });

@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { desc, eq } from "drizzle-orm";
-import { db, webhookEndpointsTable } from "@workspace/db";
+import { db, webhookEndpointsTable, webhookDeliveryLogsTable } from "@workspace/db";
 import { randomUUID } from "crypto";
+
 const router: IRouter = Router();
 
 function isValidUrl(s: unknown): s is string {
@@ -33,12 +34,7 @@ router.post("/webhooks", async (req, res): Promise<void> => {
   const id = randomUUID();
   const secret = `glkw_${randomUUID().replace(/-/g, "")}`;
 
-  await db.insert(webhookEndpointsTable).values({
-    id,
-    url,
-    secret,
-    active: true,
-  });
+  await db.insert(webhookEndpointsTable).values({ id, url, secret, active: true });
 
   const [row] = await db
     .select()
@@ -80,10 +76,26 @@ router.patch("/webhooks/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/webhooks/:id", async (req, res): Promise<void> => {
-  await db
-    .delete(webhookEndpointsTable)
-    .where(eq(webhookEndpointsTable.id, req.params.id));
+  await db.delete(webhookEndpointsTable).where(eq(webhookEndpointsTable.id, req.params.id));
   res.status(204).end();
+});
+
+router.get("/webhooks/:id/deliveries", async (req, res): Promise<void> => {
+  const rows = await db
+    .select({
+      id: webhookDeliveryLogsTable.id,
+      event: webhookDeliveryLogsTable.event,
+      statusCode: webhookDeliveryLogsTable.statusCode,
+      responseTimeMs: webhookDeliveryLogsTable.responseTimeMs,
+      success: webhookDeliveryLogsTable.success,
+      createdAt: webhookDeliveryLogsTable.createdAt,
+    })
+    .from(webhookDeliveryLogsTable)
+    .where(eq(webhookDeliveryLogsTable.webhookEndpointId, req.params.id))
+    .orderBy(desc(webhookDeliveryLogsTable.createdAt))
+    .limit(50);
+
+  res.json(rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
 });
 
 export default router;

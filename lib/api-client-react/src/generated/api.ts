@@ -23,11 +23,17 @@ import type {
   ApiKey,
   ApiKeyInput,
   ApiKeyUpdate,
+  BalanceResponse,
+  EarnInput,
+  GetBalanceParams,
   HealthStatus,
   LedgerSummary,
   ListTransactionsParams,
+  SpendInput,
   Transaction,
   TransactionInput,
+  TransferInput,
+  TransferResponse,
   UserInput,
   UserWithWallet,
   Wallet
@@ -44,6 +50,303 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
+
+export const getGetBalanceUrl = (params: GetBalanceParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/balance?${stringifiedParams}` : `/api/balance`
+}
+
+/**
+ * @summary Get balance by username (auto-creates user on first call)
+ */
+export const getBalance = async (params: GetBalanceParams, options?: RequestInit): Promise<BalanceResponse> => {
+
+  return customFetch<BalanceResponse>(getGetBalanceUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBalanceQueryKey = (params?: GetBalanceParams,) => {
+    return [
+    `/api/balance`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetBalanceQueryOptions = <TData = Awaited<ReturnType<typeof getBalance>>, TError = ErrorType<void>>(params: GetBalanceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBalance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBalanceQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBalance>>> = ({ signal }) => getBalance(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBalance>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBalanceQueryResult = NonNullable<Awaited<ReturnType<typeof getBalance>>>
+export type GetBalanceQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get balance by username (auto-creates user on first call)
+ */
+
+export function useGetBalance<TData = Awaited<ReturnType<typeof getBalance>>, TError = ErrorType<void>>(
+ params: GetBalanceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBalance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBalanceQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getEarnGemsUrl = () => {
+
+
+
+
+  return `/api/earn`
+}
+
+/**
+ * @summary Credit gems to a user (auto-creates user on first call)
+ */
+export const earnGems = async (earnInput: EarnInput, options?: RequestInit): Promise<BalanceResponse> => {
+
+  return customFetch<BalanceResponse>(getEarnGemsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      earnInput,)
+  }
+);}
+
+
+
+
+export const getEarnGemsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof earnGems>>, TError,{data: BodyType<EarnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof earnGems>>, TError,{data: BodyType<EarnInput>}, TContext> => {
+
+const mutationKey = ['earnGems'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof earnGems>>, {data: BodyType<EarnInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  earnGems(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EarnGemsMutationResult = NonNullable<Awaited<ReturnType<typeof earnGems>>>
+    export type EarnGemsMutationBody = BodyType<EarnInput>
+    export type EarnGemsMutationError = ErrorType<void>
+
+    /**
+ * @summary Credit gems to a user (auto-creates user on first call)
+ */
+export const useEarnGems = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof earnGems>>, TError,{data: BodyType<EarnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof earnGems>>,
+        TError,
+        {data: BodyType<EarnInput>},
+        TContext
+      > => {
+      return useMutation(getEarnGemsMutationOptions(options));
+    }
+
+export const getSpendGemsUrl = () => {
+
+
+
+
+  return `/api/spend`
+}
+
+/**
+ * @summary Debit gems from a user
+ */
+export const spendGems = async (spendInput: SpendInput, options?: RequestInit): Promise<BalanceResponse> => {
+
+  return customFetch<BalanceResponse>(getSpendGemsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      spendInput,)
+  }
+);}
+
+
+
+
+export const getSpendGemsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof spendGems>>, TError,{data: BodyType<SpendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof spendGems>>, TError,{data: BodyType<SpendInput>}, TContext> => {
+
+const mutationKey = ['spendGems'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof spendGems>>, {data: BodyType<SpendInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  spendGems(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SpendGemsMutationResult = NonNullable<Awaited<ReturnType<typeof spendGems>>>
+    export type SpendGemsMutationBody = BodyType<SpendInput>
+    export type SpendGemsMutationError = ErrorType<void>
+
+    /**
+ * @summary Debit gems from a user
+ */
+export const useSpendGems = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof spendGems>>, TError,{data: BodyType<SpendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof spendGems>>,
+        TError,
+        {data: BodyType<SpendInput>},
+        TContext
+      > => {
+      return useMutation(getSpendGemsMutationOptions(options));
+    }
+
+export const getTransferGemsUrl = () => {
+
+
+
+
+  return `/api/transfer`
+}
+
+/**
+ * @summary Transfer gems between two users atomically
+ */
+export const transferGems = async (transferInput: TransferInput, options?: RequestInit): Promise<TransferResponse> => {
+
+  return customFetch<TransferResponse>(getTransferGemsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      transferInput,)
+  }
+);}
+
+
+
+
+export const getTransferGemsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transferGems>>, TError,{data: BodyType<TransferInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof transferGems>>, TError,{data: BodyType<TransferInput>}, TContext> => {
+
+const mutationKey = ['transferGems'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transferGems>>, {data: BodyType<TransferInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  transferGems(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TransferGemsMutationResult = NonNullable<Awaited<ReturnType<typeof transferGems>>>
+    export type TransferGemsMutationBody = BodyType<TransferInput>
+    export type TransferGemsMutationError = ErrorType<void>
+
+    /**
+ * @summary Transfer gems between two users atomically
+ */
+export const useTransferGems = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transferGems>>, TError,{data: BodyType<TransferInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof transferGems>>,
+        TError,
+        {data: BodyType<TransferInput>},
+        TContext
+      > => {
+      return useMutation(getTransferGemsMutationOptions(options));
+    }
 
 export const getHealthCheckUrl = () => {
 

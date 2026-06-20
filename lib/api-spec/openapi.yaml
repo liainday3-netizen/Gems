@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: consumer
+    description: Consumer-facing endpoints (require x-api-key)
   - name: users
     description: User management
   - name: wallets
@@ -19,6 +21,90 @@ tags:
   - name: api-keys
     description: API key management
 paths:
+  /balance:
+    get:
+      operationId: getBalance
+      tags: [consumer]
+      summary: Get balance by username (auto-creates user on first call)
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Balance response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+        "400":
+          description: Missing username
+
+  /earn:
+    post:
+      operationId: earnGems
+      tags: [consumer]
+      summary: Credit gems to a user (auto-creates user on first call)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EarnInput"
+      responses:
+        "200":
+          description: Updated balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+        "400":
+          description: Invalid input
+
+  /spend:
+    post:
+      operationId: spendGems
+      tags: [consumer]
+      summary: Debit gems from a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpendInput"
+      responses:
+        "200":
+          description: Updated balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+        "400":
+          description: Insufficient balance or invalid input
+
+  /transfer:
+    post:
+      operationId: transferGems
+      tags: [consumer]
+      summary: Transfer gems between two users atomically
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferInput"
+      responses:
+        "200":
+          description: Transfer result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferResponse"
+        "400":
+          description: Insufficient balance, same user, or invalid input
+
   /healthz:
     get:
       operationId: healthCheck
@@ -333,7 +419,7 @@ components:
           type: string
         type:
           type: string
-          enum: [credit, debit]
+          enum: [credit, debit, earn, spend, transfer_out, transfer_in]
         amount:
           type: integer
         balanceAfter:
@@ -359,6 +445,64 @@ components:
           minimum: 1
         reason:
           type: string
+
+    BalanceResponse:
+      type: object
+      required: [username, userId, gemBalance]
+      properties:
+        username:
+          type: string
+        userId:
+          type: string
+        gemBalance:
+          type: integer
+
+    EarnInput:
+      type: object
+      required: [username, amount]
+      properties:
+        username:
+          type: string
+        amount:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+
+    SpendInput:
+      type: object
+      required: [username, amount]
+      properties:
+        username:
+          type: string
+        amount:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+
+    TransferInput:
+      type: object
+      required: [fromUsername, toUsername, amount]
+      properties:
+        fromUsername:
+          type: string
+        toUsername:
+          type: string
+        amount:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+
+    TransferResponse:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          $ref: "#/components/schemas/BalanceResponse"
+        to:
+          $ref: "#/components/schemas/BalanceResponse"
 
     LedgerSummary:
       type: object

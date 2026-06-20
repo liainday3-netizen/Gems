@@ -41,6 +41,10 @@ export type TransactionType = typeof TransactionType[keyof typeof TransactionTyp
 export const TransactionType = {
   credit: 'credit',
   debit: 'debit',
+  earn: 'earn',
+  spend: 'spend',
+  transfer_out: 'transfer_out',
+  transfer_in: 'transfer_in',
 } as const;
 
 export interface Transaction {
@@ -73,6 +77,39 @@ export interface TransactionInput {
   reason?: string;
 }
 
+export interface BalanceResponse {
+  username: string;
+  userId: string;
+  gemBalance: number;
+}
+
+export interface EarnInput {
+  username: string;
+  /** @minimum 1 */
+  amount: number;
+  reason?: string;
+}
+
+export interface SpendInput {
+  username: string;
+  /** @minimum 1 */
+  amount: number;
+  reason?: string;
+}
+
+export interface TransferInput {
+  fromUsername: string;
+  toUsername: string;
+  /** @minimum 1 */
+  amount: number;
+  reason?: string;
+}
+
+export interface TransferResponse {
+  from: BalanceResponse;
+  to: BalanceResponse;
+}
+
 export interface AppStat {
   appSource: string;
   transactionCount: number;
@@ -102,6 +139,10 @@ export interface ApiKeyInput {
 export interface ApiKeyUpdate {
   active?: boolean;
 }
+
+export type GetBalanceParams = {
+username: string;
+};
 
 export type ListTransactionsParams = {
 userId?: string;

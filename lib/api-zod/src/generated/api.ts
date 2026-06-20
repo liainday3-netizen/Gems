@@ -9,6 +9,85 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Get balance by username (auto-creates user on first call)
+ */
+export const GetBalanceQueryParams = zod.object({
+  "username": zod.coerce.string()
+})
+
+export const GetBalanceResponse = zod.object({
+  "username": zod.string(),
+  "userId": zod.string(),
+  "gemBalance": zod.number()
+})
+
+
+/**
+ * @summary Credit gems to a user (auto-creates user on first call)
+ */
+
+
+
+export const EarnGemsBody = zod.object({
+  "username": zod.string(),
+  "amount": zod.number().min(1),
+  "reason": zod.string().optional()
+})
+
+export const EarnGemsResponse = zod.object({
+  "username": zod.string(),
+  "userId": zod.string(),
+  "gemBalance": zod.number()
+})
+
+
+/**
+ * @summary Debit gems from a user
+ */
+
+
+
+export const SpendGemsBody = zod.object({
+  "username": zod.string(),
+  "amount": zod.number().min(1),
+  "reason": zod.string().optional()
+})
+
+export const SpendGemsResponse = zod.object({
+  "username": zod.string(),
+  "userId": zod.string(),
+  "gemBalance": zod.number()
+})
+
+
+/**
+ * @summary Transfer gems between two users atomically
+ */
+
+
+
+export const TransferGemsBody = zod.object({
+  "fromUsername": zod.string(),
+  "toUsername": zod.string(),
+  "amount": zod.number().min(1),
+  "reason": zod.string().optional()
+})
+
+export const TransferGemsResponse = zod.object({
+  "from": zod.object({
+  "username": zod.string(),
+  "userId": zod.string(),
+  "gemBalance": zod.number()
+}),
+  "to": zod.object({
+  "username": zod.string(),
+  "userId": zod.string(),
+  "gemBalance": zod.number()
+})
+})
+
+
+/**
  * Returns server health status
  * @summary Health check
  */
@@ -100,7 +179,7 @@ export const ListTransactionsResponseItem = zod.object({
   "userId": zod.string(),
   "username": zod.string(),
   "appSource": zod.string(),
-  "type": zod.enum(['credit', 'debit']),
+  "type": zod.enum(['credit', 'debit', 'earn', 'spend', 'transfer_out', 'transfer_in']),
   "amount": zod.number(),
   "balanceAfter": zod.number(),
   "reason": zod.string().nullish(),

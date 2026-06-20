@@ -454,11 +454,249 @@ def earn_gems(username, amount, reason, retries=3):
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="consumer">
+      <Tabs defaultValue="quickstart">
         <TabsList className="bg-secondary">
+          <TabsTrigger value="quickstart">Quick Start</TabsTrigger>
           <TabsTrigger value="consumer">Consumer API</TabsTrigger>
           <TabsTrigger value="admin">Admin API</TabsTrigger>
         </TabsList>
+
+        {/* ── QUICK START ── */}
+        <TabsContent value="quickstart" className="space-y-5 mt-4">
+          <p className="text-sm text-muted-foreground">
+            Follow these steps to go from zero to your first successful gem transaction.
+            Takes about five minutes.
+          </p>
+
+          {/* Step 1 */}
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-sm font-bold text-primary">1</div>
+            <div className="flex-1 space-y-3 pt-0.5">
+              <h3 className="text-sm font-semibold text-foreground">Create an API key for your app</h3>
+              <p className="text-sm text-muted-foreground">
+                Go to the{" "}
+                <a href="/api-keys" className="text-primary underline hover:text-primary/80">API Keys page</a>{" "}
+                and click <span className="font-medium text-foreground">Generate</span>.
+                Enter a name that describes your app — for example{" "}
+                <code className="font-mono text-xs bg-secondary px-1 py-0.5 rounded">my-game-server</code>.
+              </p>
+              <div className="rounded-lg border border-amber-700/40 bg-amber-900/10 p-3">
+                <p className="text-xs text-amber-300/90">
+                  <span className="font-semibold">Copy the key immediately.</span>{" "}
+                  It starts with <code className="font-mono">glk_</code> and is shown exactly once.
+                  If you close the dialog without copying, delete the key and create a new one.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-sm font-bold text-primary">2</div>
+            <div className="flex-1 space-y-3 pt-0.5">
+              <h3 className="text-sm font-semibold text-foreground">Store the key as an environment variable</h3>
+              <p className="text-sm text-muted-foreground">
+                Never paste the key directly into your code. Instead, set it as an environment variable on your server.
+                Your code reads it at runtime — this way the key never ends up in your git repository.
+              </p>
+              <Tabs defaultValue="dotenv">
+                <TabsList className="bg-secondary h-8">
+                  <TabsTrigger value="dotenv" className="text-xs">.env file</TabsTrigger>
+                  <TabsTrigger value="shell" className="text-xs">Shell export</TabsTrigger>
+                  <TabsTrigger value="docker" className="text-xs">Docker</TabsTrigger>
+                </TabsList>
+                <TabsContent value="dotenv" className="mt-2">
+                  <CodeBlock code={`# .env  (add this file to .gitignore — never commit it)
+GEM_LEDGER_KEY=glk_your_actual_key_here
+GEM_LEDGER_URL=https://your-domain.com/api`} />
+                </TabsContent>
+                <TabsContent value="shell" className="mt-2">
+                  <CodeBlock code={`# In your terminal session or startup script
+export GEM_LEDGER_KEY="glk_your_actual_key_here"
+export GEM_LEDGER_URL="https://your-domain.com/api"`} />
+                </TabsContent>
+                <TabsContent value="docker" className="mt-2">
+                  <CodeBlock code={`# docker-compose.yml
+services:
+  my-app:
+    environment:
+      GEM_LEDGER_KEY: \${GEM_LEDGER_KEY}   # pulled from host env
+      GEM_LEDGER_URL: https://your-domain.com/api`} />
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-sm font-bold text-primary">3</div>
+            <div className="flex-1 space-y-3 pt-0.5">
+              <h3 className="text-sm font-semibold text-foreground">Verify your key works — check a balance</h3>
+              <p className="text-sm text-muted-foreground">
+                Run this from your terminal to confirm the key is active and your server is reachable.
+                If the username doesn't exist yet, it will be created automatically — you'll see a balance of 0.
+              </p>
+              <CodeBlock code={`curl "https://your-domain.com/api/balance?username=testplayer" \\
+  -H "x-api-key: $GEM_LEDGER_KEY"
+
+# Expected response:
+# {
+#   "username": "testplayer",
+#   "userId": "a1b2c3d4-...",
+#   "gemBalance": 0
+# }`} />
+              <div className="rounded-md border border-border/50 divide-y divide-border/50">
+                <div className="flex items-start gap-3 p-3">
+                  <code className="text-xs font-mono text-emerald-400 flex-shrink-0 min-w-[60px]">200 OK</code>
+                  <span className="text-xs text-muted-foreground">Key is valid, you're good to go.</span>
+                </div>
+                <div className="flex items-start gap-3 p-3">
+                  <code className="text-xs font-mono text-amber-400 flex-shrink-0 min-w-[60px]">401</code>
+                  <span className="text-xs text-muted-foreground">Header is missing — check that <code className="font-mono">$GEM_LEDGER_KEY</code> is exported in your shell.</span>
+                </div>
+                <div className="flex items-start gap-3 p-3">
+                  <code className="text-xs font-mono text-red-400 flex-shrink-0 min-w-[60px]">403</code>
+                  <span className="text-xs text-muted-foreground">Key is wrong or deactivated — double-check you copied the full <code className="font-mono">glk_...</code> value.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 4 */}
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-sm font-bold text-primary">4</div>
+            <div className="flex-1 space-y-3 pt-0.5">
+              <h3 className="text-sm font-semibold text-foreground">Award your first gems</h3>
+              <p className="text-sm text-muted-foreground">
+                Call <code className="font-mono text-xs bg-secondary px-1 py-0.5 rounded">/earn</code> to credit gems to a player.
+                The <code className="font-mono text-xs bg-secondary px-1 py-0.5 rounded">reason</code> field is optional but recommended —
+                it shows up in the transaction history and makes it easy to audit later.
+              </p>
+              <Tabs defaultValue="curl4">
+                <TabsList className="bg-secondary h-8">
+                  <TabsTrigger value="curl4" className="text-xs">curl</TabsTrigger>
+                  <TabsTrigger value="js4" className="text-xs">JavaScript</TabsTrigger>
+                  <TabsTrigger value="python4" className="text-xs">Python</TabsTrigger>
+                </TabsList>
+                <TabsContent value="curl4" className="mt-2">
+                  <CodeBlock code={`curl -X POST "https://your-domain.com/api/earn" \\
+  -H "x-api-key: $GEM_LEDGER_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"username":"testplayer","amount":100,"reason":"Tutorial complete"}'
+
+# Expected response:
+# {
+#   "username": "testplayer",
+#   "userId": "a1b2c3d4-...",
+#   "gemBalance": 100
+# }`} />
+                </TabsContent>
+                <TabsContent value="js4" className="mt-2">
+                  <CodeBlock code={`// Call this from your server — never from the browser
+const res = await fetch(\`\${process.env.GEM_LEDGER_URL}/earn\`, {
+  method: "POST",
+  headers: {
+    "x-api-key": process.env.GEM_LEDGER_KEY,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    username: "testplayer",
+    amount: 100,
+    reason: "Tutorial complete",
+  }),
+});
+
+if (!res.ok) {
+  const err = await res.json();
+  throw new Error(err.error);
+}
+
+const { gemBalance } = await res.json();
+console.log(\`New balance: \${gemBalance} gems\`); // New balance: 100 gems`} />
+                </TabsContent>
+                <TabsContent value="python4" className="mt-2">
+                  <CodeBlock code={`import os, requests
+
+res = requests.post(
+    f"{os.environ['GEM_LEDGER_URL']}/earn",
+    headers={
+        "x-api-key": os.environ["GEM_LEDGER_KEY"],
+        "Content-Type": "application/json",
+    },
+    json={
+        "username": "testplayer",
+        "amount": 100,
+        "reason": "Tutorial complete",
+    },
+)
+res.raise_for_status()
+data = res.json()
+print(f"New balance: {data['gemBalance']} gems")  # New balance: 100 gems`} />
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+
+          {/* Step 5 */}
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-sm font-bold text-primary">5</div>
+            <div className="flex-1 space-y-3 pt-0.5">
+              <h3 className="text-sm font-semibold text-foreground">Confirm it in the dashboard</h3>
+              <p className="text-sm text-muted-foreground">
+                Open the{" "}
+                <a href="/transactions" className="text-primary underline hover:text-primary/80">Transactions page</a>{" "}
+                — you should see your <code className="font-mono text-xs bg-secondary px-1 py-0.5 rounded">earn</code> entry at the top of the list,
+                with your app name as the source. The{" "}
+                <a href="/users" className="text-primary underline hover:text-primary/80">Users page</a>{" "}
+                will also show testplayer with a balance of 100.
+              </p>
+              <div className="rounded-md border border-primary/20 bg-primary/5 p-4 space-y-1">
+                <p className="text-xs font-semibold text-primary">You're integrated.</p>
+                <p className="text-xs text-muted-foreground">
+                  From here, wire up <code className="font-mono">/spend</code> to deduct gems when players buy things,
+                  and <code className="font-mono">/balance</code> to show their current total in your UI.
+                  See the <span className="text-foreground font-medium">Consumer API</span> tab for full details on every endpoint.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <Separator className="bg-border" />
+
+          {/* Common mistakes */}
+          <div>
+            <h3 className="text-sm font-semibold text-foreground mb-3">Common mistakes and how to fix them</h3>
+            <div className="space-y-2">
+              {[
+                {
+                  problem: "Getting 401 even though I have a key",
+                  fix: "The header name must be exactly x-api-key (lowercase, with hyphens). Check that your HTTP client isn't normalizing or stripping custom headers.",
+                },
+                {
+                  problem: "Getting 403 with a key I just created",
+                  fix: "Make sure you copied the full value including the glk_ prefix. It's easy to accidentally copy only part of it from the modal.",
+                },
+                {
+                  problem: "Balance isn't updating after a spend",
+                  fix: "The /spend endpoint returns the new balance in the response body — use that value to update your UI instead of calling /balance separately. It's already the fresh number.",
+                },
+                {
+                  problem: "Getting 400 on /spend with 'Insufficient balance'",
+                  fix: "Show the player's current balance in your UI before they attempt a purchase, and disable the buy button if they can't afford it. Check the gemBalance in the 400 error body — it tells you the actual current balance.",
+                },
+                {
+                  problem: "Same transaction appearing twice",
+                  fix: "Your app is retrying on error without checking whether the first request succeeded. Add idempotency: store the transaction ID from the response and check for it before retrying.",
+                },
+              ].map((item, i) => (
+                <div key={i} className="rounded-md border border-border/50 p-3 space-y-1">
+                  <div className="text-xs font-semibold text-foreground">{item.problem}</div>
+                  <div className="text-xs text-muted-foreground">{item.fix}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </TabsContent>
 
         {/* ── CONSUMER API ── */}
         <TabsContent value="consumer" className="space-y-4 mt-4">

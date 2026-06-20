@@ -8,6 +8,7 @@ import {
   CreateTransactionBody,
   GetTransactionSummaryResponse,
 } from "@workspace/api-zod";
+import { buildEvent, deliverWebhooks } from "../lib/webhookDelivery";
 
 const router: IRouter = Router();
 
@@ -142,6 +143,19 @@ router.post("/transactions", async (req, res): Promise<void> => {
     reason: reason ?? null,
     createdAt: now,
   });
+
+  const eventType = type === "credit" ? "transaction.credit" : "transaction.debit";
+  deliverWebhooks(buildEvent(eventType, {
+    transactionId: txId,
+    userId,
+    username: userRows[0].username,
+    appSource,
+    type,
+    amount,
+    balanceAfter: newBalance,
+    reason: reason ?? null,
+    createdAt: now.toISOString(),
+  }));
 
   res.status(201).json({
     id: txId,

@@ -11,6 +11,7 @@ import UserDetailPage from "@/pages/user-detail";
 import WalletsPage from "@/pages/wallets";
 import TransactionsPage from "@/pages/transactions";
 import ApiKeysPage from "@/pages/api-keys";
+import WebhooksPage from "@/pages/webhooks";
 import ApiReferencePage from "@/pages/api-reference";
 import NotFound from "@/pages/not-found";
 
@@ -33,6 +34,7 @@ function Router() {
         <Route path="/wallets" component={WalletsPage} />
         <Route path="/transactions" component={TransactionsPage} />
         <Route path="/api-keys" component={ApiKeysPage} />
+        <Route path="/webhooks" component={WebhooksPage} />
         <Route path="/reference" component={ApiReferencePage} />
         <Route component={NotFound} />
       </Switch>

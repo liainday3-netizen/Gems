@@ -10,6 +10,7 @@ import {
   TransferGemsBody,
   GetBalanceQueryParams,
 } from "@workspace/api-zod";
+import { buildEvent, deliverWebhooks } from "../lib/webhookDelivery";
 
 const router: IRouter = Router();
 
@@ -58,6 +59,7 @@ router.post("/earn", requireApiKey, mutationRateLimiter, async (req, res): Promi
   const currentBalance = await getBalance(user.id);
   const newBalance = currentBalance + amount;
   const now = new Date();
+  const txId = randomUUID();
 
   await db
     .update(walletsTable)
@@ -65,7 +67,7 @@ router.post("/earn", requireApiKey, mutationRateLimiter, async (req, res): Promi
     .where(eq(walletsTable.userId, user.id));
 
   await db.insert(transactionsTable).values({
-    id: randomUUID(),
+    id: txId,
     userId: user.id,
     appSource: req.appName!,
     type: "earn",
@@ -74,6 +76,18 @@ router.post("/earn", requireApiKey, mutationRateLimiter, async (req, res): Promi
     reason: reason ?? null,
     createdAt: now,
   });
+
+  deliverWebhooks(buildEvent("transaction.earn", {
+    transactionId: txId,
+    userId: user.id,
+    username: user.username,
+    appSource: req.appName!,
+    type: "earn",
+    amount,
+    balanceAfter: newBalance,
+    reason: reason ?? null,
+    createdAt: now.toISOString(),
+  }));
 
   res.json({ username: user.username, userId: user.id, gemBalance: newBalance });
 });
@@ -96,6 +110,7 @@ router.post("/spend", requireApiKey, mutationRateLimiter, async (req, res): Prom
 
   const newBalance = currentBalance - amount;
   const now = new Date();
+  const txId = randomUUID();
 
   await db
     .update(walletsTable)
@@ -103,7 +118,7 @@ router.post("/spend", requireApiKey, mutationRateLimiter, async (req, res): Prom
     .where(eq(walletsTable.userId, user.id));
 
   await db.insert(transactionsTable).values({
-    id: randomUUID(),
+    id: txId,
     userId: user.id,
     appSource: req.appName!,
     type: "spend",
@@ -112,6 +127,18 @@ router.post("/spend", requireApiKey, mutationRateLimiter, async (req, res): Prom
     reason: reason ?? null,
     createdAt: now,
   });
+
+  deliverWebhooks(buildEvent("transaction.spend", {
+    transactionId: txId,
+    userId: user.id,
+    username: user.username,
+    appSource: req.appName!,
+    type: "spend",
+    amount,
+    balanceAfter: newBalance,
+    reason: reason ?? null,
+    createdAt: now.toISOString(),
+  }));
 
   res.json({ username: user.username, userId: user.id, gemBalance: newBalance });
 });
@@ -144,6 +171,8 @@ router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): P
   const toNew = toBalance + amount;
   const now = new Date();
   const appSource = req.appName!;
+  const txOutId = randomUUID();
+  const txInId = randomUUID();
 
   await db
     .update(walletsTable)
@@ -157,7 +186,7 @@ router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): P
 
   await db.insert(transactionsTable).values([
     {
-      id: randomUUID(),
+      id: txOutId,
       userId: fromUser.id,
       appSource,
       type: "transfer_out",
@@ -167,7 +196,7 @@ router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): P
       createdAt: now,
     },
     {
-      id: randomUUID(),
+      id: txInId,
       userId: toUser.id,
       appSource,
       type: "transfer_in",
@@ -177,6 +206,18 @@ router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): P
       createdAt: now,
     },
   ]);
+
+  deliverWebhooks(buildEvent("transaction.transfer", {
+    transactionId: txOutId,
+    userId: fromUser.id,
+    username: fromUser.username,
+    appSource,
+    type: "transfer_out",
+    amount,
+    balanceAfter: fromNew,
+    reason: reason ?? null,
+    createdAt: now.toISOString(),
+  }));
 
   res.json({
     from: { username: fromUser.username, userId: fromUser.id, gemBalance: fromNew },

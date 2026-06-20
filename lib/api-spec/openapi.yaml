@@ -3,13 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Gem Ledger API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: users
+    description: User management
+  - name: wallets
+    description: Wallet balances
+  - name: transactions
+    description: Gem transactions
+  - name: api-keys
+    description: API key management
 paths:
   /healthz:
     get:
@@ -24,6 +32,236 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users
+      responses:
+        "200":
+          description: List of users with wallet balances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserWithWallet"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWithWallet"
+        "409":
+          description: Username already taken
+
+  /users/{userId}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get a user by ID
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User with wallet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWithWallet"
+        "404":
+          description: User not found
+
+  /wallets:
+    get:
+      operationId: listWallets
+      tags: [wallets]
+      summary: List all wallets with balances
+      responses:
+        "200":
+          description: List of wallets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Wallet"
+
+  /wallets/{userId}:
+    get:
+      operationId: getWallet
+      tags: [wallets]
+      summary: Get wallet for a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Wallet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+        "404":
+          description: Wallet not found
+
+  /transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      summary: List transactions with optional filters
+      parameters:
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: appSource
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+    post:
+      operationId: createTransaction
+      tags: [transactions]
+      summary: Credit or debit gems for a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionInput"
+      responses:
+        "201":
+          description: Transaction recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Insufficient balance or invalid input
+        "404":
+          description: User not found
+
+  /transactions/summary:
+    get:
+      operationId: getTransactionSummary
+      tags: [transactions]
+      summary: Summary stats for the ledger
+      responses:
+        "200":
+          description: Ledger summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerSummary"
+
+  /api-keys:
+    get:
+      operationId: listApiKeys
+      tags: [api-keys]
+      summary: List all API keys
+      responses:
+        "200":
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKey"
+    post:
+      operationId: createApiKey
+      tags: [api-keys]
+      summary: Create a new API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyInput"
+      responses:
+        "201":
+          description: Created API key (key value shown once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+
+  /api-keys/{key}:
+    patch:
+      operationId: updateApiKey
+      tags: [api-keys]
+      summary: Activate or deactivate an API key
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyUpdate"
+      responses:
+        "200":
+          description: Updated API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+        "404":
+          description: API key not found
+    delete:
+      operationId: deleteApiKey
+      tags: [api-keys]
+      summary: Delete an API key
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +272,145 @@ components:
       required:
         - status
 
+    User:
+      type: object
+      required: [id, username, createdAt]
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        createdAt:
+          type: string
+
+    UserWithWallet:
+      type: object
+      required: [id, username, createdAt, gemBalance, walletUpdatedAt]
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        createdAt:
+          type: string
+        gemBalance:
+          type: integer
+        walletUpdatedAt:
+          type: string
+
+    UserInput:
+      type: object
+      required: [username]
+      properties:
+        username:
+          type: string
+          minLength: 1
+
+    Wallet:
+      type: object
+      required: [userId, username, gemBalance, updatedAt]
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        gemBalance:
+          type: integer
+        updatedAt:
+          type: string
+
+    Transaction:
+      type: object
+      required: [id, userId, username, appSource, type, amount, balanceAfter, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        username:
+          type: string
+        appSource:
+          type: string
+        type:
+          type: string
+          enum: [credit, debit]
+        amount:
+          type: integer
+        balanceAfter:
+          type: integer
+        reason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    TransactionInput:
+      type: object
+      required: [userId, appSource, type, amount]
+      properties:
+        userId:
+          type: string
+        appSource:
+          type: string
+        type:
+          type: string
+          enum: [credit, debit]
+        amount:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+
+    LedgerSummary:
+      type: object
+      required: [totalUsers, totalGemsInCirculation, totalTransactions, transactionsByApp]
+      properties:
+        totalUsers:
+          type: integer
+        totalGemsInCirculation:
+          type: integer
+        totalTransactions:
+          type: integer
+        transactionsByApp:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppStat"
+
+    AppStat:
+      type: object
+      required: [appSource, transactionCount, totalCredited, totalDebited]
+      properties:
+        appSource:
+          type: string
+        transactionCount:
+          type: integer
+        totalCredited:
+          type: integer
+        totalDebited:
+          type: integer
+
+    ApiKey:
+      type: object
+      required: [key, appName, active, createdAt]
+      properties:
+        key:
+          type: string
+        appName:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+
+    ApiKeyInput:
+      type: object
+      required: [appName]
+      properties:
+        appName:
+          type: string
+          minLength: 1
+
+    ApiKeyUpdate:
+      type: object
+      properties:
+        active:
+          type: boolean

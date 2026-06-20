@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Gem Ledger"
+version = "1.0.0"
+id = "artifacts/gem-ledger"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19499
+
+[services.development]
+run = "pnpm --filter @workspace/gem-ledger run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/gem-ledger", "run", "build" ]
+publicDir = "artifacts/gem-ledger/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19499"
+BASE_PATH = "/"

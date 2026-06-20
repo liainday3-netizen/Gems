@@ -11,6 +11,7 @@ import UserDetailPage from "@/pages/user-detail";
 import WalletsPage from "@/pages/wallets";
 import TransactionsPage from "@/pages/transactions";
 import ApiKeysPage from "@/pages/api-keys";
+import ApiReferencePage from "@/pages/api-reference";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -32,6 +33,7 @@ function Router() {
         <Route path="/wallets" component={WalletsPage} />
         <Route path="/transactions" component={TransactionsPage} />
         <Route path="/api-keys" component={ApiKeysPage} />
+        <Route path="/reference" component={ApiReferencePage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

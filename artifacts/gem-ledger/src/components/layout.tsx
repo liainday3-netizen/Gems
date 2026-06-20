@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Wallet, ArrowLeftRight, KeySquare, Gem } from "lucide-react";
+import { LayoutDashboard, Users, Wallet, ArrowLeftRight, KeySquare, Gem, BookOpen } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -10,6 +10,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { name: "Wallets", href: "/wallets", icon: Wallet },
     { name: "Transactions", href: "/transactions", icon: ArrowLeftRight },
     { name: "API Keys", href: "/api-keys", icon: KeySquare },
+    { name: "API Reference", href: "/reference", icon: BookOpen },
   ];
 
   return (

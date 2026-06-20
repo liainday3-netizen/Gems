@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, usersTable, walletsTable, transactionsTable } from "@workspace/db";
 import { randomUUID } from "crypto";
 import { requireApiKey } from "../middleware/requireApiKey";
+import { balanceRateLimiter, mutationRateLimiter } from "../middleware/rateLimiter";
 import {
   EarnGemsBody,
   SpendGemsBody,
@@ -32,7 +33,7 @@ async function getBalance(userId: string): Promise<number> {
   return w?.gemBalance ?? 0;
 }
 
-router.get("/balance", requireApiKey, async (req, res): Promise<void> => {
+router.get("/balance", requireApiKey, balanceRateLimiter, async (req, res): Promise<void> => {
   const qp = GetBalanceQueryParams.safeParse(req.query);
   if (!qp.success) {
     res.status(400).json({ error: "username required" });
@@ -45,7 +46,7 @@ router.get("/balance", requireApiKey, async (req, res): Promise<void> => {
   res.json({ username: user.username, userId: user.id, gemBalance: balance });
 });
 
-router.post("/earn", requireApiKey, async (req, res): Promise<void> => {
+router.post("/earn", requireApiKey, mutationRateLimiter, async (req, res): Promise<void> => {
   const parsed = EarnGemsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -77,7 +78,7 @@ router.post("/earn", requireApiKey, async (req, res): Promise<void> => {
   res.json({ username: user.username, userId: user.id, gemBalance: newBalance });
 });
 
-router.post("/spend", requireApiKey, async (req, res): Promise<void> => {
+router.post("/spend", requireApiKey, mutationRateLimiter, async (req, res): Promise<void> => {
   const parsed = SpendGemsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -115,7 +116,7 @@ router.post("/spend", requireApiKey, async (req, res): Promise<void> => {
   res.json({ username: user.username, userId: user.id, gemBalance: newBalance });
 });
 
-router.post("/transfer", requireApiKey, async (req, res): Promise<void> => {
+router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): Promise<void> => {
   const parsed = TransferGemsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

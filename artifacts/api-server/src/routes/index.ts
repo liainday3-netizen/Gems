@@ -8,6 +8,7 @@ import apiKeysRouter from "./api-keys";
 import webhooksRouter from "./webhooks";
 import treasuryRouter from "./treasury";
 import conversionRouter from "./conversion";
+import webhookInboxRouter from "./webhookInbox";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(apiKeysRouter);
 router.use(webhooksRouter);
 router.use(treasuryRouter);
 router.use(conversionRouter);
+router.use(webhookInboxRouter);
 
 export default router;

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Webhook, Plus, Trash2, Check, Copy, ShieldCheck, AlertTriangle,
   Power, PowerOff, ChevronDown, ChevronRight, Clock, CheckCircle2, XCircle,
+  Inbox, ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,22 @@ interface DeliveryLog {
   createdAt: string;
 }
 
+interface InboxEvent {
+  id: string;
+  event: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
+function slugify(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -56,6 +73,52 @@ async function apiFetch(path: string, options?: RequestInit) {
   }
   if (res.status === 204) return null;
   return res.json();
+}
+
+function InboxEventsPanel({ slug }: { slug: string }) {
+  const { data: events = [], isLoading } = useQuery<InboxEvent[]>({
+    queryKey: ["webhook-inbox-events", slug],
+    queryFn: () => apiFetch(`/webhook-inbox/${encodeURIComponent(slug)}/events`),
+    enabled: Boolean(slug),
+    refetchInterval: 5_000,
+  });
+
+  if (isLoading) {
+    return <div className="text-xs text-muted-foreground py-3">Loading received events…</div>;
+  }
+
+  if (events.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-border p-4 text-xs text-muted-foreground">
+        No events received yet. Register the URL above, then trigger a transaction to see it here.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-border overflow-hidden">
+      <div className="divide-y divide-border/50">
+        {events.map((event) => (
+          <div key={event.id} className="p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <code className={`font-mono text-xs ${eventColor(event.event)}`}>{event.event}</code>
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                {new Date(event.createdAt).toLocaleString(undefined, {
+                  month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit",
+                })}
+              </span>
+            </div>
+            <pre className="max-h-28 overflow-auto rounded bg-background/70 p-2 text-[10px] leading-relaxed text-muted-foreground">
+              {JSON.stringify(event.payload, null, 2)}
+            </pre>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground px-3 py-2 border-t border-border/50">
+        Last 25 received events · refreshes every 5 s
+      </p>
+    </div>
+  );
 }
 
 function eventColor(event: string) {
@@ -217,9 +280,14 @@ export default function WebhooksPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [urlInput, setUrlInput] = useState("");
+  const [appName, setAppName] = useState("");
   const [secretDialog, setSecretDialog] = useState<CreatedWebhook | null>(null);
   const [secretCopied, setSecretCopied] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<WebhookEndpoint | null>(null);
+  const inboxSlug = slugify(appName);
+  const inboxUrl = inboxSlug
+    ? `${window.location.origin}/api/webhook-inbox/${inboxSlug}`
+    : "";
 
   const { data: endpoints = [], isLoading } = useQuery<WebhookEndpoint[]>({
     queryKey: ["webhooks"],
@@ -321,6 +389,66 @@ export default function WebhooksPage() {
         </CardContent>
       </Card>
 
+      {/* Built-in inbox */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Inbox className="h-4 w-4 text-primary" />
+            Built-in test inbox
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Generate a live receiver URL for testing without deploying your own webhook handler.
+            Production integrations can still use any public HTTPS endpoint.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="inbox-app-name">App name</Label>
+            <Input
+              id="inbox-app-name"
+              placeholder="e.g. Quest Runner"
+              value={appName}
+              onChange={(e) => setAppName(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Lowercase letters, numbers, and hyphens are used in the generated slug.
+            </p>
+          </div>
+          {inboxUrl && (
+            <>
+              <div className="space-y-2">
+                <Label>Live inbox URL</Label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0 rounded-md border border-border bg-secondary px-3 py-2 font-mono text-xs text-foreground truncate">
+                    {inboxUrl}
+                  </div>
+                  <CopyButton text={inboxUrl} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 whitespace-nowrap"
+                    onClick={() => {
+                      setUrlInput(inboxUrl);
+                      setCreateOpen(true);
+                    }}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Use URL
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Recent received events</Label>
+                  <code className="text-[10px] text-muted-foreground">{inboxSlug}</code>
+                </div>
+                <InboxEventsPanel slug={inboxSlug} />
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Verification snippet */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
@@ -406,7 +534,8 @@ app.post("/gems/webhook", express.raw({ type: "application/json" }), (req, res) 
           <DialogHeader>
             <DialogTitle>Add webhook endpoint</DialogTitle>
             <DialogDescription>
-              Enter the HTTPS URL on your server that will receive event POSTs.
+              Enter a public HTTPS URL that will receive event POSTs. The built-in inbox URL above is
+              available for testing, while production integrations should use their own HTTPS handler.
               A signing secret will be generated — copy it immediately, it won't be shown again.
             </DialogDescription>
           </DialogHeader>

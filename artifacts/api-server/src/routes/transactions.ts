@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, sql, and } from "drizzle-orm";
-import { db, usersTable, walletsTable, transactionsTable } from "@workspace/db";
+import { db, usersTable, walletsTable, transactionsTable, treasuryTable } from "@workspace/db";
 import { randomUUID } from "crypto";
 import {
   ListTransactionsQueryParams,
@@ -9,6 +9,7 @@ import {
   GetTransactionSummaryResponse,
 } from "@workspace/api-zod";
 import { buildEvent, deliverWebhooks } from "../lib/webhookDelivery";
+import { type GemType } from "../lib/conversionRates";
 
 const router: IRouter = Router();
 
@@ -18,12 +19,29 @@ router.get("/transactions/summary", async (_req, res): Promise<void> => {
     .from(usersTable);
 
   const [walletSum] = await db
-    .select({ total: sql<number>`coalesce(sum(gem_balance),0)::int` })
+    .select({
+      normal: sql<number>`coalesce(sum(coalesce(normal_gems, gem_balance)),0)::int`,
+      rare: sql<number>`coalesce(sum(rare_gems),0)::int`,
+    })
     .from(walletsTable);
 
   const [txCount] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(transactionsTable);
+
+  const [conversionCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(transactionsTable)
+    .where(eq(transactionsTable.type, "convert"));
+
+  await db
+    .insert(treasuryTable)
+    .values({ id: "primary", backingAmount: "0" })
+    .onConflictDoNothing();
+  const [treasury] = await db
+    .select({ backingAmount: treasuryTable.backingAmount })
+    .from(treasuryTable)
+    .where(eq(treasuryTable.id, "primary"));
 
   const appStats = await db
     .select({
@@ -38,8 +56,12 @@ router.get("/transactions/summary", async (_req, res): Promise<void> => {
   res.json(
     GetTransactionSummaryResponse.parse({
       totalUsers: userCount?.count ?? 0,
-      totalGemsInCirculation: walletSum?.total ?? 0,
+      totalGemsInCirculation: (walletSum?.normal ?? 0) + (walletSum?.rare ?? 0),
+      totalNormalGems: walletSum?.normal ?? 0,
+      totalRareGems: walletSum?.rare ?? 0,
       totalTransactions: txCount?.count ?? 0,
+      totalConversions: conversionCount?.count ?? 0,
+      treasuryBacking: Number(treasury?.backingAmount ?? 0),
       transactionsByApp: appStats,
     })
   );
@@ -65,6 +87,7 @@ router.get("/transactions", async (req, res): Promise<void> => {
       username: usersTable.username,
       appSource: transactionsTable.appSource,
       type: transactionsTable.type,
+      gemType: transactionsTable.gemType,
       amount: transactionsTable.amount,
       balanceAfter: transactionsTable.balanceAfter,
       reason: transactionsTable.reason,
@@ -82,6 +105,7 @@ router.get("/transactions", async (req, res): Promise<void> => {
     username: r.username,
     appSource: r.appSource,
     type: r.type,
+      gemType: r.gemType,
     amount: r.amount,
     balanceAfter: r.balanceAfter,
     reason: r.reason ?? null,
@@ -99,6 +123,7 @@ router.post("/transactions", async (req, res): Promise<void> => {
   }
 
   const { userId, appSource, type, amount, reason } = parsed.data;
+  const gemType = parsed.data.gemType ?? "normal";
 
   const userRows = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (userRows.length === 0) {
@@ -112,7 +137,9 @@ router.post("/transactions", async (req, res): Promise<void> => {
     return;
   }
 
-  const currentBalance = walletRows[0].gemBalance;
+  const currentNormal = walletRows[0].normalGems ?? walletRows[0].gemBalance;
+  const currentRare = walletRows[0].rareGems ?? 0;
+  const currentBalance = gemType === "rare" ? currentRare : currentNormal;
   let newBalance: number;
 
   if (type === "credit") {
@@ -130,7 +157,12 @@ router.post("/transactions", async (req, res): Promise<void> => {
 
   await db
     .update(walletsTable)
-    .set({ gemBalance: newBalance, updatedAt: now })
+    .set({
+      gemBalance: gemType === "normal" ? newBalance : currentNormal,
+      normalGems: gemType === "normal" ? newBalance : currentNormal,
+      rareGems: gemType === "rare" ? newBalance : currentRare,
+      updatedAt: now,
+    })
     .where(eq(walletsTable.userId, userId));
 
   await db.insert(transactionsTable).values({
@@ -138,6 +170,7 @@ router.post("/transactions", async (req, res): Promise<void> => {
     userId,
     appSource,
     type,
+    gemType,
     amount,
     balanceAfter: newBalance,
     reason: reason ?? null,
@@ -151,6 +184,7 @@ router.post("/transactions", async (req, res): Promise<void> => {
     username: userRows[0].username,
     appSource,
     type,
+    gemType,
     amount,
     balanceAfter: newBalance,
     reason: reason ?? null,

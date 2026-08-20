@@ -7,6 +7,7 @@ export const transactionsTable = pgTable("transactions", {
   userId: text("user_id").notNull(),
   appSource: text("app_source").notNull(),
   type: text("type").notNull(),
+  gemType: text("gem_type").notNull().default("normal"),
   amount: integer("amount").notNull(),
   balanceAfter: integer("balance_after").notNull(),
   reason: text("reason"),

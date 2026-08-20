@@ -18,6 +18,8 @@ router.get("/users", async (req, res): Promise<void> => {
       username: usersTable.username,
       createdAt: usersTable.createdAt,
       gemBalance: walletsTable.gemBalance,
+      normalGems: walletsTable.normalGems,
+      rareGems: walletsTable.rareGems,
       walletUpdatedAt: walletsTable.updatedAt,
     })
     .from(usersTable)
@@ -28,7 +30,9 @@ router.get("/users", async (req, res): Promise<void> => {
     id: r.id,
     username: r.username,
     createdAt: r.createdAt.toISOString(),
-    gemBalance: r.gemBalance ?? 0,
+    gemBalance: r.normalGems ?? r.gemBalance ?? 0,
+    normalGems: r.normalGems ?? r.gemBalance ?? 0,
+    rareGems: r.rareGems ?? 0,
     walletUpdatedAt: r.walletUpdatedAt ? r.walletUpdatedAt.toISOString() : r.createdAt.toISOString(),
   }));
 
@@ -58,7 +62,7 @@ router.post("/users", async (req, res): Promise<void> => {
   const now = new Date();
 
   await db.insert(usersTable).values({ id, username, createdAt: now });
-  await db.insert(walletsTable).values({ userId: id, gemBalance: 0, updatedAt: now });
+  await db.insert(walletsTable).values({ userId: id, gemBalance: 0, normalGems: 0, rareGems: 0, updatedAt: now });
 
   res.status(201).json(
     GetUserResponse.parse({
@@ -66,6 +70,8 @@ router.post("/users", async (req, res): Promise<void> => {
       username,
       createdAt: now.toISOString(),
       gemBalance: 0,
+      normalGems: 0,
+      rareGems: 0,
       walletUpdatedAt: now.toISOString(),
     })
   );
@@ -85,6 +91,8 @@ router.get("/users/:userId", async (req, res): Promise<void> => {
       username: usersTable.username,
       createdAt: usersTable.createdAt,
       gemBalance: walletsTable.gemBalance,
+      normalGems: walletsTable.normalGems,
+      rareGems: walletsTable.rareGems,
       walletUpdatedAt: walletsTable.updatedAt,
     })
     .from(usersTable)
@@ -102,7 +110,9 @@ router.get("/users/:userId", async (req, res): Promise<void> => {
       id: r.id,
       username: r.username,
       createdAt: r.createdAt.toISOString(),
-      gemBalance: r.gemBalance ?? 0,
+      gemBalance: r.normalGems ?? r.gemBalance ?? 0,
+      normalGems: r.normalGems ?? r.gemBalance ?? 0,
+      rareGems: r.rareGems ?? 0,
       walletUpdatedAt: r.walletUpdatedAt ? r.walletUpdatedAt.toISOString() : r.createdAt.toISOString(),
     })
   );

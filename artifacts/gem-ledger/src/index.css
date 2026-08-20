@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -102,57 +103,57 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  /* Deep Indigo / Dark Teal Terminal Theme */
-  --background: 222 47% 5%;
-  --foreground: 210 40% 98%;
+  /* Control-room ledger palette: ink, sea-glass, and a measured rare-gem amber */
+  --background: 217 35% 8%;
+  --foreground: 210 33% 95%;
 
-  --border: 217 33% 17%;
+  --border: 215 24% 20%;
 
-  --card: 222 47% 8%;
-  --card-foreground: 210 40% 98%;
-  --card-border: 217 33% 17%;
+  --card: 216 30% 11%;
+  --card-foreground: 210 33% 95%;
+  --card-border: 215 24% 20%;
 
-  --sidebar: 222 47% 5%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-border: 217 33% 17%;
-  --sidebar-primary: 171 100% 41%;
-  --sidebar-primary-foreground: 222 47% 5%;
-  --sidebar-accent: 217 33% 17%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-ring: 171 100% 41%;
+  --sidebar: 218 37% 7%;
+  --sidebar-foreground: 210 33% 95%;
+  --sidebar-border: 215 24% 17%;
+  --sidebar-primary: 169 67% 48%;
+  --sidebar-primary-foreground: 217 35% 8%;
+  --sidebar-accent: 215 26% 14%;
+  --sidebar-accent-foreground: 210 33% 95%;
+  --sidebar-ring: 169 67% 48%;
 
-  --popover: 222 47% 5%;
-  --popover-foreground: 210 40% 98%;
-  --popover-border: 217 33% 17%;
+  --popover: 216 30% 11%;
+  --popover-foreground: 210 33% 95%;
+  --popover-border: 215 24% 20%;
 
-  --primary: 171 100% 41%;
-  --primary-foreground: 222 47% 5%;
+  --primary: 169 67% 48%;
+  --primary-foreground: 217 35% 8%;
 
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 215 26% 14%;
+  --secondary-foreground: 210 33% 95%;
 
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted: 215 26% 14%;
+  --muted-foreground: 215 16% 63%;
 
-  --accent: 217 33% 17%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 215 26% 14%;
+  --accent-foreground: 210 33% 95%;
 
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 4 67% 57%;
+  --destructive-foreground: 210 33% 95%;
 
-  --input: 217 33% 17%;
-  --ring: 171 100% 41%;
+  --input: 215 24% 20%;
+  --ring: 169 67% 48%;
   
-  --chart-1: 171 100% 41%;
-  --chart-2: 210 40% 98%;
-  --chart-3: 217 33% 17%;
-  --chart-4: 215 20.2% 65.1%;
-  --chart-5: 0 62.8% 30.6%;
+  --chart-1: 169 67% 48%;
+  --chart-2: 40 83% 64%;
+  --chart-3: 197 68% 62%;
+  --chart-4: 215 16% 63%;
+  --chart-5: 4 67% 57%;
 
-  --app-font-sans: 'Inter', sans-serif;
+  --app-font-sans: 'Manrope', sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: 'JetBrains Mono', Menlo, monospace;
-  --radius: 0.25rem;
+  --app-font-mono: 'DM Mono', Menlo, monospace;
+  --radius: 0.5rem;
   
   --shadow-2xs: 0px 2px 0px 0px rgba(0,0,0,0.5);
   --shadow-xs: 0px 2px 0px 0px rgba(0,0,0,0.5);
@@ -176,7 +177,7 @@
 }
 
 .dark {
-  /* Enforce same palette if dark class used */
+  /* Ledger is intentionally dark-first; keep the theme stable if a consumer adds .dark. */
 }
 
 @layer base {
@@ -186,7 +187,18 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    background-image: radial-gradient(circle at 84% -18%, hsl(169 67% 48% / .08), transparent 34rem);
   }
+}
+
+@layer utilities {
+  .ledger-grid {
+    background-image: linear-gradient(hsl(var(--border) / .22) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / .22) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .number-display { font-family: var(--app-font-mono); letter-spacing: -0.04em; }
+  .rare-sheen { background: linear-gradient(135deg, hsl(40 83% 64% / .15), hsl(40 83% 64% / .03)); }
 }
 
 @layer utilities {

@@ -254,6 +254,7 @@ export default function ApiReferencePage() {
                     { endpoint: "POST /earn",     limit: "60 req",  window: "1 min", why: "Writes a transaction row on every call." },
                     { endpoint: "POST /spend",    limit: "60 req",  window: "1 min", why: "Writes a transaction row on every call." },
                     { endpoint: "POST /transfer", limit: "60 req",  window: "1 min", why: "Writes two transaction rows per call." },
+                    { endpoint: "POST /convert",  limit: "60 req",  window: "1 min", why: "Writes a conversion and checks the treasury atomically." },
                   ].map((row) => (
                     <tr key={row.endpoint} className="hover:bg-secondary/20 transition-colors">
                       <td className="p-3 font-mono text-foreground">{row.endpoint}</td>
@@ -707,6 +708,29 @@ print(f"New balance: {data['gemBalance']} gems")  # New balance: 100 gems`} />
             Rate limits are shown on each endpoint (<Gauge className="h-3 w-3 inline text-violet-400 mx-0.5" />).
           </p>
 
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Gem tiers</CardTitle>
+              <CardDescription>Every wallet carries both tiers independently. Pass the tier explicitly with <code className="font-mono text-xs">gemType</code>.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <code className="font-mono text-sm font-semibold text-primary">normal</code>
+                  <span className="text-xs text-muted-foreground">Base tier</span>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">The standard gem balance. 500 Normal Gems convert to 1 simulated $POOL.</p>
+              </div>
+              <div className="rounded-md border border-amber-400/30 bg-amber-400/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <code className="font-mono text-sm font-semibold text-amber-300">rare</code>
+                  <span className="text-xs text-muted-foreground">Premium tier</span>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">A separate premium balance. 100 Rare Gems convert to 1 simulated $POOL.</p>
+              </div>
+            </CardContent>
+          </Card>
+
           <EndpointCard
             method="GET"
             path={`${BASE}/balance`}
@@ -720,7 +744,8 @@ print(f"New balance: {data['gemBalance']} gems")  # New balance: 100 gems`} />
             responseFields={[
               { name: "username",   type: "string",  description: "Echoed username." },
               { name: "userId",     type: "string",  description: "Internal user ID (UUID)." },
-              { name: "gemBalance", type: "integer", description: "Current gem balance." },
+              { name: "normalGems", type: "integer", description: "Current Normal Gems balance." },
+              { name: "rareGems",   type: "integer", description: "Current Rare Gems balance." },
             ]}
             curl={`curl "https://your-domain.com/api/balance?username=alice" \\
   -H "x-api-key: ${KEY}"`}
@@ -736,17 +761,19 @@ print(f"New balance: {data['gemBalance']} gems")  # New balance: 100 gems`} />
             bodyFields={[
               { name: "username", type: "string",  required: true, description: "Target player's username." },
               { name: "amount",   type: "integer", required: true, description: "Number of gems to award. Must be ≥ 1." },
+              { name: "gemType",  type: '"normal" | "rare"', description: "Gem lane to credit. Defaults to normal." },
               { name: "reason",   type: "string",                  description: "Human-readable reason for the credit (e.g. 'Quest: Dragon Slayer')." },
             ]}
             responseFields={[
               { name: "username",   type: "string",  description: "Player username." },
               { name: "userId",     type: "string",  description: "Internal user ID." },
-              { name: "gemBalance", type: "integer", description: "New balance after the credit." },
+              { name: "normalGems", type: "integer", description: "New Normal Gems balance." },
+              { name: "rareGems",   type: "integer", description: "New Rare Gems balance." },
             ]}
             curl={`curl -X POST "https://your-domain.com/api/earn" \\
   -H "x-api-key: ${KEY}" \\
   -H "Content-Type: application/json" \\
-  -d '{"username":"alice","amount":500,"reason":"Quest: Dragon Slayer"}'`}
+             -d '{"username":"alice","amount":500,"gemType":"normal","reason":"Quest: Dragon Slayer"}'`}
           />
 
           <EndpointCard
@@ -759,17 +786,19 @@ print(f"New balance: {data['gemBalance']} gems")  # New balance: 100 gems`} />
             bodyFields={[
               { name: "username", type: "string",  required: true, description: "Target player's username." },
               { name: "amount",   type: "integer", required: true, description: "Number of gems to deduct. Must be ≥ 1." },
+              { name: "gemType",  type: '"normal" | "rare"', description: "Gem lane to debit. Defaults to normal." },
               { name: "reason",   type: "string",                  description: "Human-readable reason for the debit." },
             ]}
             responseFields={[
               { name: "username",   type: "string",  description: "Player username." },
               { name: "userId",     type: "string",  description: "Internal user ID." },
-              { name: "gemBalance", type: "integer", description: "New balance after the debit." },
+              { name: "normalGems", type: "integer", description: "New Normal Gems balance." },
+              { name: "rareGems",   type: "integer", description: "New Rare Gems balance." },
             ]}
             curl={`curl -X POST "https://your-domain.com/api/spend" \\
   -H "x-api-key: ${KEY}" \\
   -H "Content-Type: application/json" \\
-  -d '{"username":"alice","amount":100,"reason":"Bought: Crystal Wand"}'`}
+             -d '{"username":"alice","amount":100,"gemType":"normal","reason":"Bought: Crystal Wand"}'`}
           />
 
           <EndpointCard
@@ -783,20 +812,49 @@ print(f"New balance: {data['gemBalance']} gems")  # New balance: 100 gems`} />
               { name: "fromUsername", type: "string",  required: true, description: "Username of the sender." },
               { name: "toUsername",   type: "string",  required: true, description: "Username of the recipient. Must differ from fromUsername." },
               { name: "amount",       type: "integer", required: true, description: "Number of gems to transfer. Must be ≥ 1." },
+              { name: "gemType",      type: '"normal" | "rare"', description: "Gem lane to transfer. Defaults to normal." },
               { name: "reason",       type: "string",                  description: "Human-readable reason for the transfer." },
             ]}
             responseFields={[
               { name: "from.username",   type: "string",  description: "Sender username." },
               { name: "from.userId",     type: "string",  description: "Sender user ID." },
-              { name: "from.gemBalance", type: "integer", description: "Sender's new balance." },
+              { name: "from.normalGems", type: "integer", description: "Sender's new Normal Gems balance." },
+              { name: "from.rareGems",   type: "integer", description: "Sender's new Rare Gems balance." },
               { name: "to.username",     type: "string",  description: "Recipient username." },
               { name: "to.userId",       type: "string",  description: "Recipient user ID." },
-              { name: "to.gemBalance",   type: "integer", description: "Recipient's new balance." },
+              { name: "to.normalGems",   type: "integer", description: "Recipient's new Normal Gems balance." },
+              { name: "to.rareGems",     type: "integer", description: "Recipient's new Rare Gems balance." },
             ]}
             curl={`curl -X POST "https://your-domain.com/api/transfer" \\
   -H "x-api-key: ${KEY}" \\
   -H "Content-Type: application/json" \\
   -d '{"fromUsername":"alice","toUsername":"bob","amount":50,"reason":"Gifted"}'`}
+          />
+
+          <EndpointCard
+            method="POST"
+            path={`${BASE}/convert`}
+            summary="Convert gems to $POOL"
+            description="Converts a whole multiple of the configured gem rate into simulated $POOL. The request is rejected unless the user has enough selected gems and the treasury has enough backing."
+            auth
+            rateLimit={{ limit: 60, window: "min" }}
+            bodyFields={[
+              { name: "username", type: "string", required: true, description: "Player whose gems will be deducted." },
+              { name: "gemType", type: '"normal" | "rare"', required: true, description: "Gem lane to convert." },
+              { name: "amount", type: "integer", required: true, description: "Must be a multiple of 500 Normal Gems or 100 Rare Gems." },
+              { name: "targetToken", type: '"POOL"', required: true, description: "The only supported target token for now." },
+            ]}
+            responseFields={[
+              { name: "poolAmount", type: "number", description: "Simulated $POOL amount returned." },
+              { name: "normalGems", type: "integer", description: "User's Normal Gems after conversion." },
+              { name: "rareGems", type: "integer", description: "User's Rare Gems after conversion." },
+              { name: "treasuryBacking", type: "number", description: "Treasury backing remaining after conversion." },
+              { name: "transactionId", type: "string", description: "Immutable conversion transaction ID." },
+            ]}
+            curl={`curl -X POST "https://your-domain.com/api/convert" \\
+  -H "x-api-key: ${KEY}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"username":"alice","gemType":"rare","amount":100,"targetToken":"POOL"}'`}
           />
 
           <Separator className="bg-border" />
@@ -808,6 +866,7 @@ print(f"New balance: {data['gemBalance']} gems")  # New balance: 100 gems`} />
                 { type: "spend",        color: "text-red-400",     desc: "Debit from /spend" },
                 { type: "transfer_out", color: "text-amber-400",   desc: "Debit side of /transfer (sender)" },
                 { type: "transfer_in",  color: "text-sky-400",     desc: "Credit side of /transfer (recipient)" },
+                  { type: "convert",      color: "text-violet-400",  desc: "Gem deduction for /convert" },
               ].map((t) => (
                 <div key={t.type} className="flex items-center gap-3 rounded border border-border/50 p-2.5">
                   <code className={`text-xs font-mono font-semibold ${t.color}`}>{t.type}</code>
@@ -906,6 +965,38 @@ print(f"New balance: {data['gemBalance']} gems")  # New balance: 100 gems`} />
             curl={`curl -X POST "https://your-domain.com/api/transactions" \\
   -H "Content-Type: application/json" \\
   -d '{"userId":"<uuid>","appSource":"admin","type":"credit","amount":100,"reason":"Manual correction"}'`}
+          />
+
+          <EndpointCard
+            method="GET"
+            path={`${BASE}/treasury`}
+            summary="Read treasury backing"
+            description="Returns the current backing balance used to approve gem conversions."
+            responseFields={[
+              { name: "id",            type: "string",   description: "The primary treasury record ID." },
+              { name: "backingAmount", type: "number",   description: "Current backing value." },
+              { name: "updatedAt",     type: "string",   description: "ISO 8601 timestamp." },
+            ]}
+            curl={`curl "https://your-domain.com/api/treasury"`}
+          />
+
+          <EndpointCard
+            method="POST"
+            path={`${BASE}/treasury/adjust`}
+            summary="Adjust treasury backing"
+            description="Internal admin operation for increasing or decreasing backing. Decreases are rejected if they would make the treasury negative."
+            bodyFields={[
+              { name: "operation", type: '"increase" | "decrease"', required: true, description: "Direction of the backing adjustment." },
+              { name: "amount",    type: "number", required: true, description: "Positive backing amount." },
+              { name: "reason",    type: "string", description: "Optional admin note." },
+            ]}
+            responseFields={[
+              { name: "backingAmount", type: "number", description: "Updated backing balance." },
+              { name: "updatedAt",     type: "string", description: "ISO 8601 timestamp." },
+            ]}
+            curl={`curl -X POST "https://your-domain.com/api/treasury/adjust" \\
+  -H "Content-Type: application/json" \\
+  -d '{"operation":"increase","amount":1000,"reason":"Initial backing"}'`}
           />
 
           <EndpointCard

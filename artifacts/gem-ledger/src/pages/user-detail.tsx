@@ -6,7 +6,11 @@ import {
   useCreateTransaction, 
   getGetUserQueryKey, 
   getListTransactionsQueryKey,
-  TransactionInputType
+  getListUsersQueryKey,
+  getListWalletsQueryKey,
+  getGetTransactionSummaryQueryKey,
+  TransactionInputType,
+  GemType
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -38,6 +42,7 @@ export default function UserDetailPage() {
 
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<TransactionInputType>("credit");
+  const [gemType, setGemType] = useState<GemType>("normal");
   const [appSource, setAppSource] = useState("admin_dashboard");
   const [reason, setReason] = useState("");
 
@@ -48,6 +53,9 @@ export default function UserDetailPage() {
         setReason("");
         queryClient.invalidateQueries({ queryKey: getGetUserQueryKey(userId) });
         queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey({ userId }) });
+        queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListWalletsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetTransactionSummaryQueryKey() });
         toast({ title: "Transaction successful" });
       },
       onError: (error) => {
@@ -65,6 +73,7 @@ export default function UserDetailPage() {
         userId,
         appSource,
         type,
+         gemType,
         amount: Number(amount),
         reason: reason || undefined
       }
@@ -85,9 +94,9 @@ export default function UserDetailPage() {
             <h1 className="text-3xl font-bold tracking-tight">{user.username}</h1>
             <p className="text-sm text-muted-foreground font-mono mt-1">ID: {user.id}</p>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Gem Balance</p>
-            <p className="text-4xl font-bold text-primary font-mono">{user.gemBalance.toLocaleString()}</p>
+           <div className="grid grid-cols-2 gap-5 text-right">
+             <div><p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Normal</p><p className="number-display mt-1 text-3xl font-medium text-primary">{user.normalGems.toLocaleString()}</p></div>
+             <div><p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Rare</p><p className="number-display mt-1 text-3xl font-medium text-[hsl(40_83%_64%)]">{user.rareGems.toLocaleString()}</p></div>
           </div>
         </div>
       </div>
@@ -109,6 +118,16 @@ export default function UserDetailPage() {
                   <SelectContent>
                     <SelectItem value="credit">Credit (+)</SelectItem>
                     <SelectItem value="debit">Debit (-)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Gem lane</label>
+                <Select value={gemType} onValueChange={(val) => setGemType(val as GemType)}>
+                  <SelectTrigger className="bg-background border-border" data-testid="select-user-gem-type"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Normal gems</SelectItem>
+                    <SelectItem value="rare">Rare gems</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -159,7 +178,8 @@ export default function UserDetailPage() {
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
+                   <TableHead>Lane</TableHead>
+                   <TableHead>Type</TableHead>
                   <TableHead>App Source</TableHead>
                   <TableHead>Reason</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
@@ -169,18 +189,21 @@ export default function UserDetailPage() {
               <TableBody>
                 {isLoadingTx ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
+                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading transaction history…</TableCell>
                   </TableRow>
                 ) : transactions?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No transactions found.</TableCell>
+                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No transactions found.</TableCell>
                   </TableRow>
                 ) : transactions?.map((tx) => (
                   <TableRow key={tx.id} className="border-border">
                     <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                       {format(new Date(tx.createdAt), "MMM d, HH:mm:ss")}
                     </TableCell>
-                    <TableCell>
+                     <TableCell>
+                       <Badge variant="outline" className={tx.gemType === "rare" ? "border-[hsl(40_83%_64%/0.35)] text-[hsl(40_83%_64%)]" : "border-primary/30 text-primary"}>{tx.gemType}</Badge>
+                     </TableCell>
+                     <TableCell>
                       <Badge variant="outline" className={`border-transparent ${tx.type === 'credit' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-destructive/10 text-destructive'}`}>
                         {tx.type === 'credit' ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownRight className="h-3 w-3 mr-1" />}
                         {tx.type}

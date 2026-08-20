@@ -18,7 +18,9 @@ export const GetBalanceQueryParams = zod.object({
 export const GetBalanceResponse = zod.object({
   "username": zod.string(),
   "userId": zod.string(),
-  "gemBalance": zod.number()
+  "gemBalance": zod.number().optional().describe('Deprecated alias for normalGems.'),
+  "normalGems": zod.number(),
+  "rareGems": zod.number()
 })
 
 
@@ -26,18 +28,21 @@ export const GetBalanceResponse = zod.object({
  * @summary Credit gems to a user (auto-creates user on first call)
  */
 
-
+export const earnGemsBodyGemTypeDefault = `normal`;
 
 export const EarnGemsBody = zod.object({
   "username": zod.string(),
   "amount": zod.number().min(1),
+  "gemType": zod.enum(['normal', 'rare']).default(earnGemsBodyGemTypeDefault),
   "reason": zod.string().optional()
 })
 
 export const EarnGemsResponse = zod.object({
   "username": zod.string(),
   "userId": zod.string(),
-  "gemBalance": zod.number()
+  "gemBalance": zod.number().optional().describe('Deprecated alias for normalGems.'),
+  "normalGems": zod.number(),
+  "rareGems": zod.number()
 })
 
 
@@ -45,18 +50,50 @@ export const EarnGemsResponse = zod.object({
  * @summary Debit gems from a user
  */
 
-
+export const spendGemsBodyGemTypeDefault = `normal`;
 
 export const SpendGemsBody = zod.object({
   "username": zod.string(),
   "amount": zod.number().min(1),
+  "gemType": zod.enum(['normal', 'rare']).default(spendGemsBodyGemTypeDefault),
   "reason": zod.string().optional()
 })
 
 export const SpendGemsResponse = zod.object({
   "username": zod.string(),
   "userId": zod.string(),
-  "gemBalance": zod.number()
+  "gemBalance": zod.number().optional().describe('Deprecated alias for normalGems.'),
+  "normalGems": zod.number(),
+  "rareGems": zod.number()
+})
+
+
+/**
+ * Converts whole multiples of the configured gem-to-$POOL rate after checking treasury backing.
+ * @summary Convert gems into simulated $POOL tokens
+ */
+
+
+
+
+export const ConvertGemsBody = zod.object({
+  "username": zod.string().min(1),
+  "gemType": zod.enum(['normal', 'rare']),
+  "amount": zod.number().min(1),
+  "targetToken": zod.enum(['POOL'])
+})
+
+export const ConvertGemsResponse = zod.object({
+  "username": zod.string(),
+  "userId": zod.string(),
+  "gemType": zod.enum(['normal', 'rare']),
+  "amount": zod.number(),
+  "targetToken": zod.enum(['POOL']),
+  "poolAmount": zod.number(),
+  "normalGems": zod.number(),
+  "rareGems": zod.number(),
+  "treasuryBacking": zod.number(),
+  "transactionId": zod.string()
 })
 
 
@@ -64,12 +101,13 @@ export const SpendGemsResponse = zod.object({
  * @summary Transfer gems between two users atomically
  */
 
-
+export const transferGemsBodyGemTypeDefault = `normal`;
 
 export const TransferGemsBody = zod.object({
   "fromUsername": zod.string(),
   "toUsername": zod.string(),
   "amount": zod.number().min(1),
+  "gemType": zod.enum(['normal', 'rare']).default(transferGemsBodyGemTypeDefault),
   "reason": zod.string().optional()
 })
 
@@ -77,12 +115,16 @@ export const TransferGemsResponse = zod.object({
   "from": zod.object({
   "username": zod.string(),
   "userId": zod.string(),
-  "gemBalance": zod.number()
+  "gemBalance": zod.number().optional().describe('Deprecated alias for normalGems.'),
+  "normalGems": zod.number(),
+  "rareGems": zod.number()
 }),
   "to": zod.object({
   "username": zod.string(),
   "userId": zod.string(),
-  "gemBalance": zod.number()
+  "gemBalance": zod.number().optional().describe('Deprecated alias for normalGems.'),
+  "normalGems": zod.number(),
+  "rareGems": zod.number()
 })
 })
 
@@ -103,7 +145,9 @@ export const ListUsersResponseItem = zod.object({
   "id": zod.string(),
   "username": zod.string(),
   "createdAt": zod.string(),
-  "gemBalance": zod.number(),
+  "gemBalance": zod.number().optional().describe('Deprecated alias for normalGems.'),
+  "normalGems": zod.number(),
+  "rareGems": zod.number(),
   "walletUpdatedAt": zod.string()
 })
 export const ListUsersResponse = zod.array(ListUsersResponseItem)
@@ -131,7 +175,9 @@ export const GetUserResponse = zod.object({
   "id": zod.string(),
   "username": zod.string(),
   "createdAt": zod.string(),
-  "gemBalance": zod.number(),
+  "gemBalance": zod.number().optional().describe('Deprecated alias for normalGems.'),
+  "normalGems": zod.number(),
+  "rareGems": zod.number(),
   "walletUpdatedAt": zod.string()
 })
 
@@ -142,7 +188,9 @@ export const GetUserResponse = zod.object({
 export const ListWalletsResponseItem = zod.object({
   "userId": zod.string(),
   "username": zod.string(),
-  "gemBalance": zod.number(),
+  "gemBalance": zod.number().optional().describe('Deprecated alias for normalGems.'),
+  "normalGems": zod.number(),
+  "rareGems": zod.number(),
   "updatedAt": zod.string()
 })
 export const ListWalletsResponse = zod.array(ListWalletsResponseItem)
@@ -158,7 +206,9 @@ export const GetWalletParams = zod.object({
 export const GetWalletResponse = zod.object({
   "userId": zod.string(),
   "username": zod.string(),
-  "gemBalance": zod.number(),
+  "gemBalance": zod.number().optional().describe('Deprecated alias for normalGems.'),
+  "normalGems": zod.number(),
+  "rareGems": zod.number(),
   "updatedAt": zod.string()
 })
 
@@ -179,7 +229,8 @@ export const ListTransactionsResponseItem = zod.object({
   "userId": zod.string(),
   "username": zod.string(),
   "appSource": zod.string(),
-  "type": zod.enum(['credit', 'debit', 'earn', 'spend', 'transfer_out', 'transfer_in']),
+  "type": zod.enum(['credit', 'debit', 'earn', 'spend', 'transfer_out', 'transfer_in', 'convert']),
+  "gemType": zod.enum(['normal', 'rare']),
   "amount": zod.number(),
   "balanceAfter": zod.number(),
   "reason": zod.string().nullish(),
@@ -198,6 +249,7 @@ export const CreateTransactionBody = zod.object({
   "userId": zod.string(),
   "appSource": zod.string(),
   "type": zod.enum(['credit', 'debit']),
+  "gemType": zod.enum(['normal', 'rare']).optional(),
   "amount": zod.number().min(1),
   "reason": zod.string().optional()
 })
@@ -209,13 +261,48 @@ export const CreateTransactionBody = zod.object({
 export const GetTransactionSummaryResponse = zod.object({
   "totalUsers": zod.number(),
   "totalGemsInCirculation": zod.number(),
+  "totalNormalGems": zod.number(),
+  "totalRareGems": zod.number(),
   "totalTransactions": zod.number(),
+  "totalConversions": zod.number(),
+  "treasuryBacking": zod.number(),
   "transactionsByApp": zod.array(zod.object({
   "appSource": zod.string(),
   "transactionCount": zod.number(),
   "totalCredited": zod.number(),
   "totalDebited": zod.number()
 }))
+})
+
+
+/**
+ * @summary Get current treasury backing
+ */
+export const GetTreasuryResponse = zod.object({
+  "id": zod.string(),
+  "backingAmount": zod.number(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * Internal admin operation. Decreases are rejected if they would make backing negative.
+ * @summary Increase or decrease treasury backing
+ */
+export const adjustTreasuryBodyAmountMin = 0.01;
+
+
+
+export const AdjustTreasuryBody = zod.object({
+  "operation": zod.enum(['increase', 'decrease']),
+  "amount": zod.number().min(adjustTreasuryBodyAmountMin),
+  "reason": zod.string().optional()
+})
+
+export const AdjustTreasuryResponse = zod.object({
+  "id": zod.string(),
+  "backingAmount": zod.number(),
+  "updatedAt": zod.string()
 })
 
 

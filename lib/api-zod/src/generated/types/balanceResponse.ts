@@ -9,5 +9,8 @@
 export interface BalanceResponse {
   username: string;
   userId: string;
-  gemBalance: number;
+  /** Deprecated alias for normalGems. */
+  gemBalance?: number;
+  normalGems: number;
+  rareGems: number;
 }

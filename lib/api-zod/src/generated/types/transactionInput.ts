@@ -5,12 +5,14 @@
  * Gem Ledger API
  * OpenAPI spec version: 0.1.0
  */
+import type { GemType } from './gemType';
 import type { TransactionInputType } from './transactionInputType';
 
 export interface TransactionInput {
   userId: string;
   appSource: string;
   type: TransactionInputType;
+  gemType?: GemType;
   /** @minimum 1 */
   amount: number;
   reason?: string;

@@ -10,6 +10,10 @@ import type { AppStat } from './appStat';
 export interface LedgerSummary {
   totalUsers: number;
   totalGemsInCirculation: number;
+  totalNormalGems: number;
+  totalRareGems: number;
   totalTransactions: number;
+  totalConversions: number;
+  treasuryBacking: number;
   transactionsByApp: AppStat[];
 }

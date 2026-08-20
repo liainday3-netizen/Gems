@@ -16,4 +16,5 @@ export const TransactionType = {
   spend: 'spend',
   transfer_out: 'transfer_out',
   transfer_in: 'transfer_in',
+  convert: 'convert',
 } as const;

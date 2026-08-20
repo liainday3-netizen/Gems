@@ -19,7 +19,10 @@ export interface UserWithWallet {
   id: string;
   username: string;
   createdAt: string;
-  gemBalance: number;
+  /** Deprecated alias for normalGems. */
+  gemBalance?: number;
+  normalGems: number;
+  rareGems: number;
   walletUpdatedAt: string;
 }
 
@@ -31,7 +34,10 @@ export interface UserInput {
 export interface Wallet {
   userId: string;
   username: string;
-  gemBalance: number;
+  /** Deprecated alias for normalGems. */
+  gemBalance?: number;
+  normalGems: number;
+  rareGems: number;
   updatedAt: string;
 }
 
@@ -45,6 +51,15 @@ export const TransactionType = {
   spend: 'spend',
   transfer_out: 'transfer_out',
   transfer_in: 'transfer_in',
+  convert: 'convert',
+} as const;
+
+export type GemType = typeof GemType[keyof typeof GemType];
+
+
+export const GemType = {
+  normal: 'normal',
+  rare: 'rare',
 } as const;
 
 export interface Transaction {
@@ -53,6 +68,7 @@ export interface Transaction {
   username: string;
   appSource: string;
   type: TransactionType;
+  gemType: GemType;
   amount: number;
   balanceAfter: number;
   /** @nullable */
@@ -72,6 +88,7 @@ export interface TransactionInput {
   userId: string;
   appSource: string;
   type: TransactionInputType;
+  gemType?: GemType;
   /** @minimum 1 */
   amount: number;
   reason?: string;
@@ -80,13 +97,17 @@ export interface TransactionInput {
 export interface BalanceResponse {
   username: string;
   userId: string;
-  gemBalance: number;
+  /** Deprecated alias for normalGems. */
+  gemBalance?: number;
+  normalGems: number;
+  rareGems: number;
 }
 
 export interface EarnInput {
   username: string;
   /** @minimum 1 */
   amount: number;
+  gemType?: GemType;
   reason?: string;
 }
 
@@ -94,6 +115,7 @@ export interface SpendInput {
   username: string;
   /** @minimum 1 */
   amount: number;
+  gemType?: GemType;
   reason?: string;
 }
 
@@ -102,6 +124,7 @@ export interface TransferInput {
   toUsername: string;
   /** @minimum 1 */
   amount: number;
+  gemType?: GemType;
   reason?: string;
 }
 
@@ -120,8 +143,69 @@ export interface AppStat {
 export interface LedgerSummary {
   totalUsers: number;
   totalGemsInCirculation: number;
+  totalNormalGems: number;
+  totalRareGems: number;
   totalTransactions: number;
+  totalConversions: number;
+  treasuryBacking: number;
   transactionsByApp: AppStat[];
+}
+
+export type ConvertInputTargetToken = typeof ConvertInputTargetToken[keyof typeof ConvertInputTargetToken];
+
+
+export const ConvertInputTargetToken = {
+  POOL: 'POOL',
+} as const;
+
+export interface ConvertInput {
+  /** @minLength 1 */
+  username: string;
+  gemType: GemType;
+  /** @minimum 1 */
+  amount: number;
+  targetToken: ConvertInputTargetToken;
+}
+
+export type ConversionResponseTargetToken = typeof ConversionResponseTargetToken[keyof typeof ConversionResponseTargetToken];
+
+
+export const ConversionResponseTargetToken = {
+  POOL: 'POOL',
+} as const;
+
+export interface ConversionResponse {
+  username: string;
+  userId: string;
+  gemType: GemType;
+  amount: number;
+  targetToken: ConversionResponseTargetToken;
+  poolAmount: number;
+  normalGems: number;
+  rareGems: number;
+  treasuryBacking: number;
+  transactionId: string;
+}
+
+export interface Treasury {
+  id: string;
+  backingAmount: number;
+  updatedAt: string;
+}
+
+export type TreasuryAdjustmentInputOperation = typeof TreasuryAdjustmentInputOperation[keyof typeof TreasuryAdjustmentInputOperation];
+
+
+export const TreasuryAdjustmentInputOperation = {
+  increase: 'increase',
+  decrease: 'decrease',
+} as const;
+
+export interface TreasuryAdjustmentInput {
+  operation: TreasuryAdjustmentInputOperation;
+  /** @minimum 0.01 */
+  amount: number;
+  reason?: string;
 }
 
 export interface ApiKey {

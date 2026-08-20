@@ -79,18 +79,20 @@ export default function UsersPage() {
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="w-[100px]">ID</TableHead>
                 <TableHead>Username</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
+                 <TableHead className="text-right">Normal</TableHead>
+                 <TableHead className="text-right">Rare</TableHead>
+                 <TableHead className="text-right">Combined</TableHead>
                 <TableHead className="text-right">Joined</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
+                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading user balances…</TableCell>
                 </TableRow>
               ) : filteredUsers?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No users found</TableCell>
+                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No users found</TableCell>
                 </TableRow>
               ) : filteredUsers?.map((user) => (
                 <TableRow key={user.id} className="border-border group">
@@ -104,9 +106,9 @@ export default function UsersPage() {
                       {user.username}
                     </Link>
                   </TableCell>
-                  <TableCell className="text-right font-mono text-primary font-bold">
-                    {user.gemBalance.toLocaleString()}
-                  </TableCell>
+                   <TableCell className="text-right font-mono font-medium text-primary">{user.normalGems.toLocaleString()}</TableCell>
+                   <TableCell className="text-right font-mono font-medium text-[hsl(40_83%_64%)]">{user.rareGems.toLocaleString()}</TableCell>
+                   <TableCell className="text-right font-mono font-semibold text-foreground">{(user.normalGems + user.rareGems).toLocaleString()}</TableCell>
                   <TableCell className="text-right text-sm text-muted-foreground">
                     {format(new Date(user.createdAt), "MMM d, yyyy")}
                   </TableCell>

@@ -56,7 +56,8 @@ export default function TransactionsPage() {
                 <TableHead className="w-[180px]">Timestamp</TableHead>
                 <TableHead>User</TableHead>
                 <TableHead>App Source</TableHead>
-                <TableHead>Type</TableHead>
+                 <TableHead>Lane</TableHead>
+                 <TableHead>Type</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
               </TableRow>
@@ -64,18 +65,18 @@ export default function TransactionsPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
+                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading ledger movements…</TableCell>
                 </TableRow>
               ) : transactions?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No transactions match filters.</TableCell>
+                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No transactions match filters.</TableCell>
                 </TableRow>
               ) : transactions?.map((tx) => (
                 <TableRow key={tx.id} className="border-border">
                   <TableCell className="text-sm text-muted-foreground font-mono">
                     {format(new Date(tx.createdAt), "yyyy-MM-dd HH:mm:ss")}
                   </TableCell>
-                  <TableCell>
+                   <TableCell>
                     <Link href={`/users/${tx.userId}`} className="font-medium hover:text-primary transition-colors">
                       {tx.username}
                     </Link>
@@ -83,17 +84,22 @@ export default function TransactionsPage() {
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {tx.appSource}
                   </TableCell>
+                   <TableCell>
+                     <Badge variant="outline" className={tx.gemType === "rare" ? "border-[hsl(40_83%_64%/0.35)] text-[hsl(40_83%_64%)]" : "border-primary/30 text-primary"}>
+                       {tx.gemType}
+                     </Badge>
+                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={`border-transparent ${tx.type === 'credit' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-destructive/10 text-destructive'}`}>
-                      {tx.type === 'credit' ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownRight className="h-3 w-3 mr-1" />}
+                     <Badge variant="outline" className={`border-transparent ${tx.type === 'credit' || tx.type === 'earn' || tx.type === 'transfer_in' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-destructive/10 text-destructive'}`}>
+                       {tx.type === 'credit' || tx.type === 'earn' || tx.type === 'transfer_in' ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownRight className="h-3 w-3 mr-1" />}
                       {tx.type}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm max-w-[200px] truncate" title={tx.reason || ""}>
                     {tx.reason || "-"}
                   </TableCell>
-                  <TableCell className={`text-right font-mono font-bold ${tx.type === 'credit' ? 'text-emerald-500' : 'text-destructive'}`}>
-                    {tx.type === 'credit' ? '+' : '-'}{tx.amount.toLocaleString()}
+                   <TableCell className={`text-right font-mono font-bold ${tx.type === 'credit' || tx.type === 'earn' || tx.type === 'transfer_in' ? 'text-emerald-500' : 'text-destructive'}`}>
+                     {tx.type === 'credit' || tx.type === 'earn' || tx.type === 'transfer_in' ? '+' : '-'}{tx.amount.toLocaleString()}
                   </TableCell>
                 </TableRow>
               ))}

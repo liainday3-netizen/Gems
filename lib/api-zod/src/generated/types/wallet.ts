@@ -9,6 +9,9 @@
 export interface Wallet {
   userId: string;
   username: string;
-  gemBalance: number;
+  /** Deprecated alias for normalGems. */
+  gemBalance?: number;
+  normalGems: number;
+  rareGems: number;
   updatedAt: string;
 }

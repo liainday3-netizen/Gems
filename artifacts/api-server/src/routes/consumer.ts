@@ -11,6 +11,7 @@ import {
   GetBalanceQueryParams,
 } from "@workspace/api-zod";
 import { buildEvent, deliverWebhooks } from "../lib/webhookDelivery";
+import { type GemType } from "../lib/conversionRates";
 
 const router: IRouter = Router();
 
@@ -25,13 +26,46 @@ async function getOrCreateUser(username: string): Promise<{ id: string; username
   const id = randomUUID();
   const now = new Date();
   await db.insert(usersTable).values({ id, username, createdAt: now });
-  await db.insert(walletsTable).values({ userId: id, gemBalance: 0, updatedAt: now });
+  await db.insert(walletsTable).values({ userId: id, gemBalance: 0, normalGems: 0, rareGems: 0, updatedAt: now });
   return { id, username };
 }
 
-async function getBalance(userId: string): Promise<number> {
+async function getBalances(userId: string): Promise<{ normalGems: number; rareGems: number }> {
   const [w] = await db.select().from(walletsTable).where(eq(walletsTable.userId, userId));
-  return w?.gemBalance ?? 0;
+  return {
+    normalGems: w?.normalGems ?? w?.gemBalance ?? 0,
+    rareGems: w?.rareGems ?? 0,
+  };
+}
+
+function getBalanceForType(balances: { normalGems: number; rareGems: number }, gemType: GemType): number {
+  return gemType === "rare" ? balances.rareGems : balances.normalGems;
+}
+
+function getWalletUpdate(
+  balances: { normalGems: number; rareGems: number },
+  gemType: GemType,
+  newBalance: number,
+) {
+  return {
+    normalGems: gemType === "normal" ? newBalance : balances.normalGems,
+    rareGems: gemType === "rare" ? newBalance : balances.rareGems,
+    // Keep the original column aligned with normal gems for older integrations.
+    gemBalance: gemType === "normal" ? newBalance : balances.normalGems,
+  };
+}
+
+function balanceResponse(
+  user: { id: string; username: string },
+  balances: { normalGems: number; rareGems: number },
+) {
+  return {
+    username: user.username,
+    userId: user.id,
+    normalGems: balances.normalGems,
+    rareGems: balances.rareGems,
+    gemBalance: balances.normalGems,
+  };
 }
 
 router.get("/balance", requireApiKey, balanceRateLimiter, async (req, res): Promise<void> => {
@@ -42,9 +76,9 @@ router.get("/balance", requireApiKey, balanceRateLimiter, async (req, res): Prom
   }
 
   const user = await getOrCreateUser(qp.data.username);
-  const balance = await getBalance(user.id);
+  const balances = await getBalances(user.id);
 
-  res.json({ username: user.username, userId: user.id, gemBalance: balance });
+  res.json(balanceResponse(user, balances));
 });
 
 router.post("/earn", requireApiKey, mutationRateLimiter, async (req, res): Promise<void> => {
@@ -55,15 +89,16 @@ router.post("/earn", requireApiKey, mutationRateLimiter, async (req, res): Promi
   }
 
   const { username, amount, reason } = parsed.data;
+  const gemType = parsed.data.gemType ?? "normal";
   const user = await getOrCreateUser(username);
-  const currentBalance = await getBalance(user.id);
-  const newBalance = currentBalance + amount;
+  const balances = await getBalances(user.id);
+  const newBalance = getBalanceForType(balances, gemType) + amount;
   const now = new Date();
   const txId = randomUUID();
 
   await db
     .update(walletsTable)
-    .set({ gemBalance: newBalance, updatedAt: now })
+    .set({ ...getWalletUpdate(balances, gemType, newBalance), updatedAt: now })
     .where(eq(walletsTable.userId, user.id));
 
   await db.insert(transactionsTable).values({
@@ -71,6 +106,7 @@ router.post("/earn", requireApiKey, mutationRateLimiter, async (req, res): Promi
     userId: user.id,
     appSource: req.appName!,
     type: "earn",
+    gemType,
     amount,
     balanceAfter: newBalance,
     reason: reason ?? null,
@@ -89,7 +125,10 @@ router.post("/earn", requireApiKey, mutationRateLimiter, async (req, res): Promi
     createdAt: now.toISOString(),
   }));
 
-  res.json({ username: user.username, userId: user.id, gemBalance: newBalance });
+  res.json(balanceResponse(user, {
+    ...balances,
+    ...(gemType === "normal" ? { normalGems: newBalance } : { rareGems: newBalance }),
+  }));
 });
 
 router.post("/spend", requireApiKey, mutationRateLimiter, async (req, res): Promise<void> => {
@@ -100,11 +139,13 @@ router.post("/spend", requireApiKey, mutationRateLimiter, async (req, res): Prom
   }
 
   const { username, amount, reason } = parsed.data;
+  const gemType = parsed.data.gemType ?? "normal";
   const user = await getOrCreateUser(username);
-  const currentBalance = await getBalance(user.id);
+  const balances = await getBalances(user.id);
+  const currentBalance = getBalanceForType(balances, gemType);
 
   if (currentBalance < amount) {
-    res.status(400).json({ error: "Insufficient balance", gemBalance: currentBalance });
+    res.status(400).json({ error: `Insufficient ${gemType} gem balance`, gemType, balance: currentBalance });
     return;
   }
 
@@ -114,7 +155,7 @@ router.post("/spend", requireApiKey, mutationRateLimiter, async (req, res): Prom
 
   await db
     .update(walletsTable)
-    .set({ gemBalance: newBalance, updatedAt: now })
+    .set({ ...getWalletUpdate(balances, gemType, newBalance), updatedAt: now })
     .where(eq(walletsTable.userId, user.id));
 
   await db.insert(transactionsTable).values({
@@ -122,6 +163,7 @@ router.post("/spend", requireApiKey, mutationRateLimiter, async (req, res): Prom
     userId: user.id,
     appSource: req.appName!,
     type: "spend",
+    gemType,
     amount,
     balanceAfter: newBalance,
     reason: reason ?? null,
@@ -140,7 +182,10 @@ router.post("/spend", requireApiKey, mutationRateLimiter, async (req, res): Prom
     createdAt: now.toISOString(),
   }));
 
-  res.json({ username: user.username, userId: user.id, gemBalance: newBalance });
+  res.json(balanceResponse(user, {
+    ...balances,
+    ...(gemType === "normal" ? { normalGems: newBalance } : { rareGems: newBalance }),
+  }));
 });
 
 router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): Promise<void> => {
@@ -151,6 +196,7 @@ router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): P
   }
 
   const { fromUsername, toUsername, amount, reason } = parsed.data;
+  const gemType = parsed.data.gemType ?? "normal";
 
   if (fromUsername === toUsername) {
     res.status(400).json({ error: "Cannot transfer to self" });
@@ -160,14 +206,16 @@ router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): P
   const fromUser = await getOrCreateUser(fromUsername);
   const toUser = await getOrCreateUser(toUsername);
 
-  const fromBalance = await getBalance(fromUser.id);
+  const fromBalances = await getBalances(fromUser.id);
+  const fromBalance = getBalanceForType(fromBalances, gemType);
   if (fromBalance < amount) {
     res.status(400).json({ error: "Insufficient balance", gemBalance: fromBalance });
     return;
   }
 
   const fromNew = fromBalance - amount;
-  const toBalance = await getBalance(toUser.id);
+  const toBalances = await getBalances(toUser.id);
+  const toBalance = getBalanceForType(toBalances, gemType);
   const toNew = toBalance + amount;
   const now = new Date();
   const appSource = req.appName!;
@@ -176,12 +224,12 @@ router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): P
 
   await db
     .update(walletsTable)
-    .set({ gemBalance: fromNew, updatedAt: now })
+    .set({ ...getWalletUpdate(fromBalances, gemType, fromNew), updatedAt: now })
     .where(eq(walletsTable.userId, fromUser.id));
 
   await db
     .update(walletsTable)
-    .set({ gemBalance: toNew, updatedAt: now })
+    .set({ ...getWalletUpdate(toBalances, gemType, toNew), updatedAt: now })
     .where(eq(walletsTable.userId, toUser.id));
 
   await db.insert(transactionsTable).values([
@@ -190,6 +238,7 @@ router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): P
       userId: fromUser.id,
       appSource,
       type: "transfer_out",
+      gemType,
       amount,
       balanceAfter: fromNew,
       reason: reason ?? null,
@@ -200,6 +249,7 @@ router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): P
       userId: toUser.id,
       appSource,
       type: "transfer_in",
+      gemType,
       amount,
       balanceAfter: toNew,
       reason: reason ?? null,
@@ -213,6 +263,7 @@ router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): P
     username: fromUser.username,
     appSource,
     type: "transfer_out",
+    gemType,
     amount,
     balanceAfter: fromNew,
     reason: reason ?? null,
@@ -220,8 +271,18 @@ router.post("/transfer", requireApiKey, mutationRateLimiter, async (req, res): P
   }));
 
   res.json({
-    from: { username: fromUser.username, userId: fromUser.id, gemBalance: fromNew },
-    to: { username: toUser.username, userId: toUser.id, gemBalance: toNew },
+    from: {
+      ...balanceResponse(fromUser, {
+        ...fromBalances,
+        ...(gemType === "normal" ? { normalGems: fromNew } : { rareGems: fromNew }),
+      }),
+    },
+    to: {
+      ...balanceResponse(toUser, {
+        ...toBalances,
+        ...(gemType === "normal" ? { normalGems: toNew } : { rareGems: toNew }),
+      }),
+    },
   });
 });
 

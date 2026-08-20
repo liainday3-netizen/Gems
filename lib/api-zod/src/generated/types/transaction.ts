@@ -5,6 +5,7 @@
  * Gem Ledger API
  * OpenAPI spec version: 0.1.0
  */
+import type { GemType } from './gemType';
 import type { TransactionType } from './transactionType';
 
 export interface Transaction {
@@ -13,6 +14,7 @@ export interface Transaction {
   username: string;
   appSource: string;
   type: TransactionType;
+  gemType: GemType;
   amount: number;
   balanceAfter: number;
   /** @nullable */

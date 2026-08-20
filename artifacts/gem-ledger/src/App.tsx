@@ -13,6 +13,7 @@ import TransactionsPage from "@/pages/transactions";
 import ApiKeysPage from "@/pages/api-keys";
 import WebhooksPage from "@/pages/webhooks";
 import ApiReferencePage from "@/pages/api-reference";
+import TreasuryPage from "@/pages/treasury";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -33,6 +34,7 @@ function Router() {
         <Route path="/users/:userId" component={UserDetailPage} />
         <Route path="/wallets" component={WalletsPage} />
         <Route path="/transactions" component={TransactionsPage} />
+        <Route path="/treasury" component={TreasuryPage} />
         <Route path="/api-keys" component={ApiKeysPage} />
         <Route path="/webhooks" component={WebhooksPage} />
         <Route path="/reference" component={ApiReferencePage} />

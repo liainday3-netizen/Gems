@@ -9,9 +9,13 @@ export interface WebhookEventData {
   username: string;
   appSource: string;
   type: string;
+  gemType?: "normal" | "rare";
   amount: number;
   balanceAfter: number;
   reason: string | null;
+  poolAmount?: number;
+  targetToken?: string;
+  treasuryBacking?: number;
   createdAt: string;
 }
 

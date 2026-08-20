@@ -5,10 +5,12 @@
  * Gem Ledger API
  * OpenAPI spec version: 0.1.0
  */
+import type { GemType } from './gemType';
 
 export interface SpendInput {
   username: string;
   /** @minimum 1 */
   amount: number;
+  gemType?: GemType;
   reason?: string;
 }

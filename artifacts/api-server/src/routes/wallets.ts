@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db, usersTable, walletsTable } from "@workspace/db";
 import {
   GetWalletParams,
@@ -15,16 +15,20 @@ router.get("/wallets", async (_req, res): Promise<void> => {
       userId: walletsTable.userId,
       username: usersTable.username,
       gemBalance: walletsTable.gemBalance,
+      normalGems: walletsTable.normalGems,
+      rareGems: walletsTable.rareGems,
       updatedAt: walletsTable.updatedAt,
     })
     .from(walletsTable)
     .innerJoin(usersTable, eq(walletsTable.userId, usersTable.id))
-    .orderBy(walletsTable.gemBalance);
+    .orderBy(desc(sql`coalesce(${walletsTable.normalGems}, ${walletsTable.gemBalance}) + coalesce(${walletsTable.rareGems}, 0)`));
 
   const result = rows.map((r) => ({
     userId: r.userId,
     username: r.username,
-    gemBalance: r.gemBalance,
+    gemBalance: r.normalGems ?? r.gemBalance ?? 0,
+    normalGems: r.normalGems ?? r.gemBalance ?? 0,
+    rareGems: r.rareGems ?? 0,
     updatedAt: r.updatedAt.toISOString(),
   }));
 
@@ -44,6 +48,8 @@ router.get("/wallets/:userId", async (req, res): Promise<void> => {
       userId: walletsTable.userId,
       username: usersTable.username,
       gemBalance: walletsTable.gemBalance,
+      normalGems: walletsTable.normalGems,
+      rareGems: walletsTable.rareGems,
       updatedAt: walletsTable.updatedAt,
     })
     .from(walletsTable)
@@ -60,7 +66,9 @@ router.get("/wallets/:userId", async (req, res): Promise<void> => {
     GetWalletResponse.parse({
       userId: r.userId,
       username: r.username,
-      gemBalance: r.gemBalance,
+      gemBalance: r.normalGems ?? r.gemBalance ?? 0,
+      normalGems: r.normalGems ?? r.gemBalance ?? 0,
+      rareGems: r.rareGems ?? 0,
       updatedAt: r.updatedAt.toISOString(),
     })
   );

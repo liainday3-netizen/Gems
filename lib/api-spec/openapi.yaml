@@ -18,6 +18,8 @@ tags:
     description: Wallet balances
   - name: transactions
     description: Gem transactions
+  - name: treasury
+    description: Treasury backing and gem conversion
   - name: api-keys
     description: API key management
 paths:
@@ -83,6 +85,28 @@ paths:
                 $ref: "#/components/schemas/BalanceResponse"
         "400":
           description: Insufficient balance or invalid input
+
+  /convert:
+    post:
+      operationId: convertGems
+      tags: [consumer]
+      summary: Convert gems into simulated $POOL tokens
+      description: Converts whole multiples of the configured gem-to-$POOL rate after checking treasury backing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConvertInput"
+      responses:
+        "200":
+          description: Conversion completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversionResponse"
+        "400":
+          description: Invalid input, insufficient gems, or insufficient treasury backing
 
   /transfer:
     post:
@@ -276,6 +300,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/LedgerSummary"
 
+  /treasury:
+    get:
+      operationId: getTreasury
+      tags: [treasury]
+      summary: Get current treasury backing
+      responses:
+        "200":
+          description: Current treasury state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Treasury"
+
+  /treasury/adjust:
+    post:
+      operationId: adjustTreasury
+      tags: [treasury]
+      summary: Increase or decrease treasury backing
+      description: Internal admin operation. Decreases are rejected if they would make backing negative.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TreasuryAdjustmentInput"
+      responses:
+        "200":
+          description: Updated treasury state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Treasury"
+        "400":
+          description: Invalid adjustment or insufficient treasury backing
+
   /api-keys:
     get:
       operationId: listApiKeys
@@ -371,7 +430,7 @@ components:
 
     UserWithWallet:
       type: object
-      required: [id, username, createdAt, gemBalance, walletUpdatedAt]
+      required: [id, username, createdAt, normalGems, rareGems, walletUpdatedAt]
       properties:
         id:
           type: string
@@ -380,6 +439,11 @@ components:
         createdAt:
           type: string
         gemBalance:
+          type: integer
+          description: Deprecated alias for normalGems.
+        normalGems:
+          type: integer
+        rareGems:
           type: integer
         walletUpdatedAt:
           type: string
@@ -394,7 +458,7 @@ components:
 
     Wallet:
       type: object
-      required: [userId, username, gemBalance, updatedAt]
+      required: [userId, username, normalGems, rareGems, updatedAt]
       properties:
         userId:
           type: string
@@ -402,12 +466,17 @@ components:
           type: string
         gemBalance:
           type: integer
+          description: Deprecated alias for normalGems.
+        normalGems:
+          type: integer
+        rareGems:
+          type: integer
         updatedAt:
           type: string
 
     Transaction:
       type: object
-      required: [id, userId, username, appSource, type, amount, balanceAfter, createdAt]
+      required: [id, userId, username, appSource, type, gemType, amount, balanceAfter, createdAt]
       properties:
         id:
           type: string
@@ -419,7 +488,9 @@ components:
           type: string
         type:
           type: string
-          enum: [credit, debit, earn, spend, transfer_out, transfer_in]
+          enum: [credit, debit, earn, spend, transfer_out, transfer_in, convert]
+        gemType:
+          $ref: "#/components/schemas/GemType"
         amount:
           type: integer
         balanceAfter:
@@ -440,6 +511,8 @@ components:
         type:
           type: string
           enum: [credit, debit]
+        gemType:
+          $ref: "#/components/schemas/GemType"
         amount:
           type: integer
           minimum: 1
@@ -448,13 +521,18 @@ components:
 
     BalanceResponse:
       type: object
-      required: [username, userId, gemBalance]
+      required: [username, userId, normalGems, rareGems]
       properties:
         username:
           type: string
         userId:
           type: string
         gemBalance:
+          type: integer
+          description: Deprecated alias for normalGems.
+        normalGems:
+          type: integer
+        rareGems:
           type: integer
 
     EarnInput:
@@ -466,6 +544,9 @@ components:
         amount:
           type: integer
           minimum: 1
+        gemType:
+          $ref: "#/components/schemas/GemType"
+          default: normal
         reason:
           type: string
 
@@ -478,6 +559,9 @@ components:
         amount:
           type: integer
           minimum: 1
+        gemType:
+          $ref: "#/components/schemas/GemType"
+          default: normal
         reason:
           type: string
 
@@ -492,6 +576,9 @@ components:
         amount:
           type: integer
           minimum: 1
+        gemType:
+          $ref: "#/components/schemas/GemType"
+          default: normal
         reason:
           type: string
 
@@ -506,14 +593,22 @@ components:
 
     LedgerSummary:
       type: object
-      required: [totalUsers, totalGemsInCirculation, totalTransactions, transactionsByApp]
+      required: [totalUsers, totalGemsInCirculation, totalNormalGems, totalRareGems, totalTransactions, totalConversions, treasuryBacking, transactionsByApp]
       properties:
         totalUsers:
           type: integer
         totalGemsInCirculation:
           type: integer
+        totalNormalGems:
+          type: integer
+        totalRareGems:
+          type: integer
         totalTransactions:
           type: integer
+        totalConversions:
+          type: integer
+        treasuryBacking:
+          type: number
         transactionsByApp:
           type: array
           items:
@@ -531,6 +626,76 @@ components:
           type: integer
         totalDebited:
           type: integer
+
+    GemType:
+      type: string
+      enum: [normal, rare]
+
+    ConvertInput:
+      type: object
+      required: [username, gemType, amount, targetToken]
+      properties:
+        username:
+          type: string
+          minLength: 1
+        gemType:
+          $ref: "#/components/schemas/GemType"
+        amount:
+          type: integer
+          minimum: 1
+        targetToken:
+          type: string
+          enum: [POOL]
+
+    ConversionResponse:
+      type: object
+      required: [username, userId, gemType, amount, targetToken, poolAmount, normalGems, rareGems, treasuryBacking, transactionId]
+      properties:
+        username:
+          type: string
+        userId:
+          type: string
+        gemType:
+          $ref: "#/components/schemas/GemType"
+        amount:
+          type: integer
+        targetToken:
+          type: string
+          enum: [POOL]
+        poolAmount:
+          type: number
+        normalGems:
+          type: integer
+        rareGems:
+          type: integer
+        treasuryBacking:
+          type: number
+        transactionId:
+          type: string
+
+    Treasury:
+      type: object
+      required: [id, backingAmount, updatedAt]
+      properties:
+        id:
+          type: string
+        backingAmount:
+          type: number
+        updatedAt:
+          type: string
+
+    TreasuryAdjustmentInput:
+      type: object
+      required: [operation, amount]
+      properties:
+        operation:
+          type: string
+          enum: [increase, decrease]
+        amount:
+          type: number
+          minimum: 0.01
+        reason:
+          type: string
 
     ApiKey:
       type: object

@@ -24,6 +24,8 @@ import type {
   ApiKeyInput,
   ApiKeyUpdate,
   BalanceResponse,
+  ConversionResponse,
+  ConvertInput,
   EarnInput,
   GetBalanceParams,
   HealthStatus,
@@ -34,6 +36,8 @@ import type {
   TransactionInput,
   TransferInput,
   TransferResponse,
+  Treasury,
+  TreasuryAdjustmentInput,
   UserInput,
   UserWithWallet,
   Wallet
@@ -275,6 +279,78 @@ export const useSpendGems = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getSpendGemsMutationOptions(options));
+    }
+
+export const getConvertGemsUrl = () => {
+
+
+
+
+  return `/api/convert`
+}
+
+/**
+ * Converts whole multiples of the configured gem-to-$POOL rate after checking treasury backing.
+ * @summary Convert gems into simulated $POOL tokens
+ */
+export const convertGems = async (convertInput: ConvertInput, options?: RequestInit): Promise<ConversionResponse> => {
+
+  return customFetch<ConversionResponse>(getConvertGemsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      convertInput,)
+  }
+);}
+
+
+
+
+export const getConvertGemsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof convertGems>>, TError,{data: BodyType<ConvertInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof convertGems>>, TError,{data: BodyType<ConvertInput>}, TContext> => {
+
+const mutationKey = ['convertGems'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof convertGems>>, {data: BodyType<ConvertInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  convertGems(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConvertGemsMutationResult = NonNullable<Awaited<ReturnType<typeof convertGems>>>
+    export type ConvertGemsMutationBody = BodyType<ConvertInput>
+    export type ConvertGemsMutationError = ErrorType<void>
+
+    /**
+ * @summary Convert gems into simulated $POOL tokens
+ */
+export const useConvertGems = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof convertGems>>, TError,{data: BodyType<ConvertInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof convertGems>>,
+        TError,
+        {data: BodyType<ConvertInput>},
+        TContext
+      > => {
+      return useMutation(getConvertGemsMutationOptions(options));
     }
 
 export const getTransferGemsUrl = () => {
@@ -1036,6 +1112,155 @@ export function useGetTransactionSummary<TData = Awaited<ReturnType<typeof getTr
 
 
 
+
+export const getGetTreasuryUrl = () => {
+
+
+
+
+  return `/api/treasury`
+}
+
+/**
+ * @summary Get current treasury backing
+ */
+export const getTreasury = async ( options?: RequestInit): Promise<Treasury> => {
+
+  return customFetch<Treasury>(getGetTreasuryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTreasuryQueryKey = () => {
+    return [
+    `/api/treasury`
+    ] as const;
+    }
+
+
+export const getGetTreasuryQueryOptions = <TData = Awaited<ReturnType<typeof getTreasury>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTreasury>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTreasuryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTreasury>>> = ({ signal }) => getTreasury({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTreasury>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTreasuryQueryResult = NonNullable<Awaited<ReturnType<typeof getTreasury>>>
+export type GetTreasuryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get current treasury backing
+ */
+
+export function useGetTreasury<TData = Awaited<ReturnType<typeof getTreasury>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTreasury>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTreasuryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAdjustTreasuryUrl = () => {
+
+
+
+
+  return `/api/treasury/adjust`
+}
+
+/**
+ * Internal admin operation. Decreases are rejected if they would make backing negative.
+ * @summary Increase or decrease treasury backing
+ */
+export const adjustTreasury = async (treasuryAdjustmentInput: TreasuryAdjustmentInput, options?: RequestInit): Promise<Treasury> => {
+
+  return customFetch<Treasury>(getAdjustTreasuryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      treasuryAdjustmentInput,)
+  }
+);}
+
+
+
+
+export const getAdjustTreasuryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adjustTreasury>>, TError,{data: BodyType<TreasuryAdjustmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof adjustTreasury>>, TError,{data: BodyType<TreasuryAdjustmentInput>}, TContext> => {
+
+const mutationKey = ['adjustTreasury'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof adjustTreasury>>, {data: BodyType<TreasuryAdjustmentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  adjustTreasury(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdjustTreasuryMutationResult = NonNullable<Awaited<ReturnType<typeof adjustTreasury>>>
+    export type AdjustTreasuryMutationBody = BodyType<TreasuryAdjustmentInput>
+    export type AdjustTreasuryMutationError = ErrorType<void>
+
+    /**
+ * @summary Increase or decrease treasury backing
+ */
+export const useAdjustTreasury = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adjustTreasury>>, TError,{data: BodyType<TreasuryAdjustmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof adjustTreasury>>,
+        TError,
+        {data: BodyType<TreasuryAdjustmentInput>},
+        TContext
+      > => {
+      return useMutation(getAdjustTreasuryMutationOptions(options));
+    }
 
 export const getListApiKeysUrl = () => {
 

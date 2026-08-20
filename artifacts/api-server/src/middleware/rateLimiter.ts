@@ -1,8 +1,9 @@
-import { rateLimit } from "express-rate-limit";
+import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import type { Request } from "express";
 
 function keyByApiKey(req: Request): string {
-  return req.header("x-api-key") ?? req.ip ?? "unknown";
+  const apiKey = req.header("x-api-key");
+  return apiKey ?? ipKeyGenerator(req.ip ?? "unknown");
 }
 
 function tooManyRequestsHandler(_req: Request, res: any): void {
